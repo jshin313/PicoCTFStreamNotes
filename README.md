@@ -1,9 +1,22 @@
-# Notes from Gynvale's Hacking Livestreams for PicoCTF Challenges
+# Notes from Gynvael's Hacking Livestreams for PicoCTF Challenges
 
-## The Factory’s Secret - General Skills
+Title                                                                      | Category         | Points | Link to Gynvael's Stream
+-------------------------------------------------------------------------- | ---------------- | ------ | ------------------------------
+[The Factory’s Secret        ](#the-factorys-secret---general-skills)      | General Skills   | 1      | 
+[Glory of the Garden         ](#glory-of-the-garden---forensics)           | Forensics        | 50     | [Part 1 (33:36)](https://youtu.be/pYrGJuOUG7M?t=33m36s)
+[Insp3ct0r                   ](#general-skills-50-warmup-1)                | Web              | 50     | [Part 1 (39:47)](https://youtu.be/pYrGJuOUG7M?t=39m47s)
+[Let's Warm Up               ](#general-skills-50-warmup-2)                | General          | 50     | [Part 1 (48:19)](https://youtu.be/pYrGJuOUG7M?t=48m19s)
+[The Numbers                 ](#general-skills-50-warmup-3)                | Crypto           | 50     | [Part 1 (50:26)](https://youtu.be/pYrGJuOUG7M?t=50m26s)
+[Warmed Up                   ](#reversing-50-reversing-warmup-1)           | General          | 50     | [Part 1 (1:00:06)](https://youtu.be/pYrGJuOUG7M?t=1h00m06s)
+
+## Credits
+All the credit goes to [Gynvael Coldwind](https://www.youtube.com/channel/UCCkVMojdBWS-JtH7TliWkVg) for making these streams. Check him out.
+I based the table format above on [this](https://github.com/shiltemann/CTF-writeups-public/blob/master/PicoCTF_2018/writeup.md#overview).
+
+## The Factory's Secret - General Skills
 Gynvael gave up on this. Maybe it was too easy.
 
-## Glory of the Garden - Forensics (Part 1 33:36)
+## Glory of the Garden - Forensics
 ```
 $ file garden.jpg # This is to confirm that this file is actually a jpg
 garden.jpg: JPEG image data, JFIF standard 1.01, resolution (DPI), density 72x72, segment length 16, baseline, precision 8, 2999x2249, frames 3
@@ -14,19 +27,19 @@ Here is a flag "picoCTF{more_than_m33ts_the_3y3b7FBD20b}"
 ```
 Grep to win (used in super easy challenges or badly prepared challenges
 
-## Insp3ct0r - Web Exploitation (Part 1 39:47)
+## Insp3ct0r - Web Exploitation
 Just use “view page source”
 
-## Let's Warm Up - General Skills (Part 1: 48:19)
+## Let's Warm Up - General Skills 
 Just use an online ascii table or hex to ascii converter or the following
 ```
 $ python
 >>> chr(0x70)
-‘p’
+'p'
 ```
 or just `man ascii` 
 
-## The Numbers - Cryptography (Part 1: 50:26)
+## The Numbers - Cryptography 
 There are only numbers no larger than 26 so the numbers just stand for the index of each letter in the alphabet. Manually do it or use this script from gynvael:
 ```
 import string
@@ -38,7 +51,7 @@ print(''.join([a[n-1] for n in k]))
 print(''.join([a[n] for n in k]))
 ```
 
-## Warmed Up - General Skills (Part 1 1:00:06)
+## Warmed Up - General Skills
 0x3D to base 10
 
 ```
@@ -49,7 +62,7 @@ print(''.join([a[n] for n in k]))
 61
 ```
 
-## 2Warm - General Skills (Part 1 1:02:06)
+## 2Warm - General Skills 
 ```
 $ python
 >>> bin(42)
@@ -67,7 +80,7 @@ Powers of 2: 8421
 2      A
 01    1010
 ```
-## handy-shellcode - Binary Exploitation (Part 1 1:05:30)
+## handy-shellcode - Binary Exploitation 
 Connect to the shell server
 ```
 $ ls -la  /problems/handy-shellcode_4_037bd47611d842b565cfa1f378bfd8d9
@@ -82,7 +95,7 @@ The gets() function is the vulnerable part of the code. This means we can use an
 ```
  void vuln(char *buf){
  	gets(buf);
-puts(buf);
+  puts(buf);
 }
 ```
 
@@ -143,7 +156,7 @@ picoCTF{h4ndY_d4ndY_sh311c0d3_55c521fe}
 ```
 Gynvael saves his shellcode to a file and then uses `cat shellcode - | ./vuln` instead but the above does the same thing.
 
-## practice-run-1 - Binary Exploitation (Part 1 1:26:18)
+## practice-run-1 - Binary Exploitation 
 Login to the shell server and just run the binary
 ```
 $ cd /problems/practice-run-1_0_62b61488e896645ebff9b6c97d0e775e
@@ -156,7 +169,7 @@ $ ./run_this
 picoCTF{g3t_r3adY_2_r3v3r53}
 ```
 
-## unzip - Forensics (Part 1 1:27:46)
+## unzip - Forensics 
 ```
 $ file flag.zip
 flag.zip: Zip archive data, at least v2.0 to extract
@@ -169,15 +182,15 @@ flag.png  flag.zip
 ```
 The flag is in flag.png
 
-## vault-door-training - Reverse Engineering (Part 1 1:30:02)
+## vault-door-training - Reverse Engineering 
 The flag is in the source code
 
-## 13 - Cryptography (Part 1 1:35:57)
+## 13 - Cryptography 
 Just use a ROT13 decrypter
 ROT13 is just a simple cipher.
 Gynvael suggests implementing it if you haven't already; otherwise just use a decrypter online like [https://rot13.com/]. Time counts on CTFs, so just use the fastest method.
 
-## Bases - General Skills (Part 1 1:38:50)
+## Bases - General Skills 
 Convert from Base64
 Base64 is used to encode binary to a printable text
 
@@ -196,18 +209,18 @@ base64.b64decode("bDNhcm5fdGgzX3IwcDM1")
 b'l3arn_th3_r0p35'
 ```
 
-## Easy1 - Cryptography (Part 1 1:47:50)
+## Easy1 - Cryptography 
 Basic substitution cipher [Vigenère cipher](https://en.wikipedia.org/wiki/Vigen%C3%A8re_cipher)
 Use the table
 
-## First Grep - General Skills (Part 1 1:56:28)
+## First Grep - General Skills 
 Grep to win
 ```
 $ cat file | grep pico
 picoCTF{grep_is_good_to_find_things_ad4e9645}
 ```
 
-## OverFlow 0 - Binary Exploitation (Part 1 1:57:06)
+## OverFlow 0 - Binary Exploitation 
 This line of code means the  sigsegv_handler() function is called when the program crashes.
 ```
 signal(SIGSEGV, sigsegv_handler);
@@ -228,13 +241,13 @@ $ ./vuln AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 picoCTF{3asY_P3a5y1fcf81f9}
 ```
 
-## Resources - General Skills (Part 1 2:00:53)
+## Resources - General Skills 
 Just go to the link and scroll down
 
-## caesar  - Cryptography (Part 1 2:01:28)
+## caesar  - Cryptography 
 Caesar cipher is basically rot-n where n is a number. Use an online decoder like [http://theblob.org/rot.cgi]. 
 
-## dont-use-client-side - Web Exploitation (Part 1 2:02:40)
+## dont-use-client-side - Web Exploitation 
 ```
 <script type="text/javascript">
   function verify() {
@@ -267,17 +280,17 @@ Caesar cipher is basically rot-n where n is a number. Use an online decoder like
 ```
 Just sort the substrings in order and then add them all to form the completed flag.
 
-## logon - Web Exploitation (Part 1 2:05:42)
+## logon - Web Exploitation 
 Set the admin cookie to True
 
-## strings it - General Skills (Part 1 2:11:07)
+## strings it - General Skills 
 Another grep to win
 ```
 $ strings strings | grep pico
 picoCTF{5tRIng5_1T_c611cac7}
 ```
 
-## vault-door-1 - Reverse Engineering (Part 1 2:13:31)
+## vault-door-1 - Reverse Engineering 
 Just sort the charAt() by indexes and combine the characters into the completed string.
 ```
 password.charAt(0)  == 'd'
@@ -314,7 +327,7 @@ password.charAt(26) == '0'
 password.charAt(31) == '0'
 ```
 
-## what's a net cat - General Skills (Part 1 2:29:37)
+## what's a net cat - General Skills 
 ```
 $ nc -v 2019shell1.picoctf.com 37851
 Connection to 2019shell1.picoctf.com 37851 port [tcp/*] succeeded!
@@ -322,14 +335,14 @@ You're on your way to becoming the net cat master
 picoCTF{nEtCat_Mast3ry_628e0244}
 ```  
 
-## where are the robots - Web Exploitation (Part 1 2:31:33)
+## where are the robots - Web Exploitation 
 Go to the robots.txt
 You'll find that there is a 'secret' webpage: /8e32f.html
 You'll find the flag there
 
 The robots.txt is a "sign" to tell web crawlers and search engines like Google not to index or go to those webpages
 
-## OverFlow 1 - Binary Exploitation (2:33:56)
+## OverFlow 1 - Binary Exploitation
  Check what type of binary this is
 ```
 $ file vuln
@@ -381,7 +394,7 @@ picoCTF{n0w_w3r3_ChaNg1ng_r3tURn5fe1ff3d8}Segmentation fault (core dumped)
 ```
 We use more than 64 bytes because there's some padding and other stuff we have to overwrite before we hit the return address (like the saved EBP). Experiment with different amounts of A's to see how many bytes are needed to reach the ret address.
 
-## So Meta - Forensics (Part 1 2:44:34)
+## So Meta - Forensics 
 Grep to win
 ```
 $ strings  pico_img.png | grep pico
@@ -395,7 +408,7 @@ File Name                       : pico_img.png
 Artist                          : picoCTF{s0_m3ta_43f253bb}
 ```
 
-## What Lies Within - Forensics (Part 1 2:46:30)
+## What Lies Within - Forensics
 ```
 $ strings buildings.png | grep pico # Always grep to win
 $ file buildings.png
@@ -430,7 +443,7 @@ Data is hidden using the least significant bit. E.g. for a color 0x31708f, the f
 
 Use an online [decoder](https://stylesuxx.github.io/steganography/). If you've never implemented LSB steg, then that's another thing you should implement according to gynvael.
 
-## Extensions - Forensics (Part 1 3:07:01)
+## Extensions - Forensics
 ```
 $ strings flag.txt | grep pico # Grep to win
 $ file flag.txt
@@ -439,7 +452,7 @@ $ mv flag.txt flag.png # Change the extension to a png
 ```
 Just change the extension and open the image
 
-## shark on the wire 1 - Forensics (Part 1 3:10:03)
+## shark on the wire 1 - Forensics
 Use wireshark
 
 Gynvael does the following: 
@@ -449,7 +462,7 @@ Notice that there are UDP packets with length 1 that seem to contain one charact
 
 Gynvael then just uses "Follow UDP stream" to find the flag
 
-## Based - General Skills (Part 1 3:20:40)
+## Based - General Skills 
 Just convert binary to ascii, decimal to ascii, and octal to ascii, etc.
 ```
 $ python
@@ -468,7 +481,7 @@ $ python
 b'table'
 ```
 
-## Client-side-again - Web Exploitation (Part 1 3:25:29)
+## Client-side-again - Web Exploitation 
 Look at the verify() function in the javascript
 ```
 function verify() {
@@ -562,20 +575,20 @@ if (checkpass['substring'](16, 24) == "_again_3")
 Piece the flag together using above:
 picoCTF{not_this_again_39d025}
 
-## First Grep: Part II - General Skills (Part 1 36:48)
+## First Grep: Part II - General Skills 
 ```
 $ rgrep pico
 files1/file22:picoCTF{grep_r_to_find_this_af11356f}
 ```
 
-## Flags - Cryptography (Part 1 3:38:22)
+## Flags - Cryptography 
 Just use a navy flags chart [International Code of Signals](https://en.wikipedia.org/wiki/International_Code_of_Signals).
 Flag is all CAPS
 
-## Mr-Worldwide - Cryptography (Part 1 3:44:54)
+## Mr-Worldwide - Cryptography 
 First letter of city names of the GPS coordinates.
 
-## Open-to-admins - Web Exploitation (Part 1 4:05:34)
+## Open-to-admins - Web Exploitation 
 Gynvael adds an admin="True" cookie, but it doesn't do anything.
 Gynvael looks at session data.
 
@@ -586,7 +599,7 @@ In the javascript console
 > document.cookie="admin=True"
 ```
 
-## Tapping - Cryptography (Part 1 4:21:28)
+## Tapping - Cryptography 
 Just use a morse code [decoder](http://www.unit-conversion.info/texttools/morse-code/).
 
 All uppercase
@@ -596,7 +609,7 @@ python
 PICOCTF{M0RS3C0D31SFUN1818224575}
 ```
 
-## la cifra de - Cryptography (Part 1 4:23:14)
+## la cifra de - Cryptography 
 
 It uses the Vigenère cipher. Just use an online [decoder](https://www.guballa.de/vigenere-solver) using English. 
 
