@@ -127,7 +127,7 @@ drwxr-x--x 684 root       root               69632 Oct 10  2019 ..
 The gets() function is the vulnerable part of the code. This means we can use any character except '\n' or 0x0A
 ```c
 void vuln(char *buf){
- 	gets(buf);
+  gets(buf);
   puts(buf);
 }
 ```
