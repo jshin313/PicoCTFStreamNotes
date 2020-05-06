@@ -819,7 +819,7 @@ plaintext:
 ```
 
 Python:
-```python
+```pycon
 $ python
 >>> ​from Crypto.Util.number import inverse
 >>> p = 15314304227252786879841261241720443415693514687428299094
@@ -1026,7 +1026,7 @@ print f
 
 ## where-is-the-file
 Connect to the shell server  
-```shell
+```console
 $ ssh username@2019shell1.picoctf.com
 Enter your platform password (characters will be hidden):
 Welcome to Ubuntu 18.04.4 LTS (GNU/Linux 4.15.0-1060-aws x86_64)
