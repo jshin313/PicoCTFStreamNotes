@@ -1039,6 +1039,87 @@ username@pico-2019-shell1:/problems/where-is-the-file_6_8eae99761e71a8a21d3b82ac
 picoCTF{w3ll_that_d1dnt_w0RK_a88d16e4}
 ```
 
+## WhitePages - Forensics
+Gynvael wants to do a forensics before moving on to binary exploitation
+
+Opening up in sublime shows what looks like a blank file  
+Opening in a hex editor shows that there are in fact 2 characters (looks like UTF-8 chars). 
+
+Replace the characters with visible ones (like # and .). If we make the data into 8 columns, we see that the first column always has the same character, which means it is probably ASCII binary data since all printable characters in ASCII use only 7 bits with the top bit being 0. Convert everything to 0's and 1's, making sure the top bit is 0.
+
+Use python to convert binary to ascii
+```pycon
+$ python
+>>> p = "00001010000010010000100101110000011010010110001101101111010000110101010001000110000010100000101000001001000010010101001101000101010001010010000001010000010101010100001001001100010010010100001100100000010100100100010101000011010011110101001001000100010100110010000000100110001000000100001001000001010000110100101101000111010100100100111101010101010011100100010000100000010100100100010101010000010011110101001001010100000010100000100100001001001101010011000000110000001100000010000001000110011011110111001001100010011001010111001100100000010000010111011001100101001011000010000001010000011010010111010001110100011100110110001001110101011100100110011101101000001011000010000001010000010000010010000000110001001101010011001000110001001100110000101000001001000010010111000001101001011000110110111101000011010101000100011001111011011011100110111101110100010111110110000101101100011011000101111101110011011100000110000101100011011001010111001101011111011000010111001001100101010111110110001101110010011001010110000101110100011001010110010001011111011001010111000101110101011000010110110001011111011000110011000100110110001101110011000000110100001100000110001100110111001100110011100001100101001110000110001001100011011000010110010100110010001100010011000000111001011001010110011000110100011000100110010100110101001110010011011000110000011000100011000101111101000010100000100100001001"
+>>> int(p, 2) # Convert binary string to integer
+>>> hex(int(p, 2)) # Convert integer to hex string
+>>> hex(int(p, 2))[2:-1] # Remove the '0x' at the beginning of the hex string and remove the 'L' at the end
+>>> ("0" + hex(int(p, 2))[2:-1]).decode("hex") # add a "0" as padding since it needs to be even length and then decode as hex
+'\n\t\tpicoCTF\n\n\t\tSEE PUBLIC RECORDS & BACKGROUND REPORT\n\t\t5000 Forbes Ave, Pittsburgh, PA 15213\n\t\tpicoCTF{not_all_spaces_are_created_equal_c167040c738e8bcae2109ef4be5960b1}\n\t\t'
+```
+
+## c0rrupt - Forensics
+Gynvael decides to do another forensics problem and saves the binary exploitation one for later.  
+
+The file command just tells us the file is data.
+```console
+$ file mystery
+mystery: data
+```
+
+Opening in a text editor reveals some strings like RGB, gAMA, etc. which tells us the file is probably a png.  
+
+Use Gynvael's brute zlib decompressor code at [https://github.com/gynvael/random-stuff/tree/master/brute_zlib]. This code will just try decompressing the zlib data in a png.  
+
+Just change `data, unused = DecompressStream(d[i:i+128])` to `data, unused = DecompressStream(d[i:i+1024000]) # Just change 128 to a random large number` since the mystery file is large. The png has a zlib marker so that when the decompression is done, the program will exit.
+
+```console
+$ python go.py ./mystery
+Some data at 0000005b
+Some data at 0000005d
+Some data at 000003ff
+Some data at 00000552
+Some data at 00000907
+...
+$ ls -la
+total 6880
+drwxrwxrwx 1 root root    4096 May  6 15:29 .
+drwxrwxrwx 1 root root    4096 May  6 15:21 ..
+-rwxrwxrwx 1 root root 1431747 May  6 15:28 0000005b.bin
+-rwxrwxrwx 1 root root 5399156 May  6 15:29 0000005d.bin
+...
+```
+Notice that the `0000005d.bin` file is the largest, so it's probably the ones we want to look at. Change the extension to .data and use GIMP to look at the file.  
+Open as Gray 8-bit and get the black dots to form a vertical line by increasing the width. 
+The dots are probably the number of filters which are part of each scanline/row of the image, so when they are aligned in a verticalish line, we should have the correct with of the image.
+
+The image should look something like this:
+```
+  .
+   .
+    .
+     .
+      .
+       .
+ . ..     ..    .....  ..                   .             . ...
+ . . ..    .      .        .     ... . .      .    .             .
+```
+
+Set Image Type to RGB and you should see some legible text.  
+Continue increasing the width and try to get the image more clear.  
+
+Gynvael says the zlib decompression is probably not an intended solution, but it's nice trick if there's a zlib stream like ZIP, GZIP, HTTP compression, or a png.  
+
+## m00nwalk
+Gynvael does another forensics challenge.  
+
+Listen to the .wav file. Somehow Gynvael figures out it's SSTV (Slow Scan TV).  
+SSTV: protocol to send images from satellites.
+
+Gynvael uses the [RX-SSTV](http://users.belgacom.net/hamradio/rxsstv.htm) program and plays the .wav file to get the picture (using the Scottie1 option).  
+
+SSTV is something you learn from CTFs.
+
 
 
 ## Random other stuff Gynvael says about solving ctf challenges during the stream
