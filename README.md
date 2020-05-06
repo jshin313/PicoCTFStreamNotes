@@ -41,6 +41,18 @@ Title                                                                      | Cat
 [Open-to-admins              ](#open-to-admins---web-exploitation)         | Web              | 200    | [Part 1 (4:05:34)](https://youtu.be/pYrGJuOUG7M?t=4h05m34s)
 [Tapping                     ](#tapping---cryptography)                    | Crypto           | 200    | [Part 1 (4:21:28)](https://youtu.be/pYrGJuOUG7M?t=4h21m28s)
 [la cifra de                 ](#la-cifra-de---cryptography)                | Crypto           | 200    | [Part 1 (4:23:14)](https://youtu.be/pYrGJuOUG7M?t=4h23m14s)
+[picobrowser                 ](#picobrowser---web-exploitation)            | Web              | 200    | [Part 2 (22:42)](https://youtu.be/gHlundcY9GA?t=22m42s)
+[plumbing                    ](#plumbing---general-skills)                 | General          | 200    | [Part 2 (29:03)](https://youtu.be/gHlundcY9GA?t=29m03s)
+[rsa-pop-quiz                ](#rsa-pop-quiz---cryptography)               | Crypto           | 200    | [Part 2 (30:11)](https://youtu.be/gHlundcY9GA?t=30m11s)
+[slippery-shellcode          ](#slippery-shellcode---binary-exploitation)  | Binary           | 200    | [Part 2 (51:31)](https://youtu.be/gHlundcY9GA?t=51m31s)
+[vault-door-3                ](#vault-door-3---reverse-engineering)        | Reversing        | 200    | [Part 2 (1:16:40)](https://youtu.be/gHlundcY9GA?t=1h16m40s)
+[whats-the-difference        ](#whats-the-difference---general-skills)     | General          | 200    | [Part 2 (1:34:10)](https://youtu.be/gHlundcY9GA?t=1h34m10s)
+[where-is-the-file           ](#where-is-the-file---general-skills)        | General          | 200    | [Part 2 (1:39:58)](https://youtu.be/gHlundcY9GA?t=1h39m58s)
+[WhitePages                  ](#whitepages---forensics)                    | Forensics        | 250    | [Part 2 (1:41:20)](https://youtu.be/gHlundcY9GA?t=1h41m20s)
+[c0rrupt                     ](#c0rrupt---forensics)                       | Forensics        | 250    | [Part 2 (1:51:03)](https://youtu.be/gHlundcY9GA?t=1h51m03s)
+[m00nwalk                    ](#m00nwalk---forensics)                      | Forensics        | 250    | [Part 2 (2:03:55)](https://youtu.be/gHlundcY9GA?t=2h03m55s)
+
+
 
 ## Credits
 All the credit goes to [Gynvael Coldwind](https://www.youtube.com/channel/UCCkVMojdBWS-JtH7TliWkVg) for making these streams. Check him out.  
@@ -1006,7 +1018,7 @@ for i, idx in enumerate(buffer):
 print p
 ```
 
-## whats-the-difference
+## whats-the-difference - General Skills
 Find the difference between the files using python:
 ```python
 d = open("kitters.jpg", "rb").read() # Unmodified file
@@ -1022,7 +1034,7 @@ for a, b in zip(d, e):
 print f
 ```
 
-## where-is-the-file
+## where-is-the-file - General Skills
 Connect to the shell server  
 ```console
 $ ssh username@2019shell1.picoctf.com
@@ -1110,7 +1122,7 @@ Continue increasing the width and try to get the image more clear.
 
 Gynvael says the zlib decompression is probably not an intended solution, but it's nice trick if there's a zlib stream like ZIP, GZIP, HTTP compression, or a png.  
 
-## m00nwalk
+## m00nwalk - Forensics
 Gynvael does another forensics challenge.  
 
 Listen to the .wav file. Somehow Gynvael figures out it's SSTV (Slow Scan TV).  
@@ -1118,9 +1130,7 @@ SSTV: protocol to send images from satellites.
 
 Gynvael uses the [RX-SSTV](http://users.belgacom.net/hamradio/rxsstv.htm) program and plays the .wav file to get the picture (using the Scottie1 option).  
 
-SSTV is something you learn from CTFs.
-
-
+SSTV is something you learn from CTFs and should know for CTFs.
 
 ## Random other stuff Gynvael says about solving ctf challenges during the stream
 * He recommends kaitai struct for stegno challenges (Part 1: 46:39)
