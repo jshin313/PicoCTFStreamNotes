@@ -647,10 +647,10 @@ PICOCTF{M0RS3C0D31SFUN1818224575}
 It uses the Vigenère cipher. Just use an online [decoder](https://www.guballa.de/vigenere-solver) using English. 
 
 ## Random other stuff gynvael says during the stream
-He recommends kaitai struct for stegno challenges (Part 1: 46:39)
-Recommends pdfstreamdumper
-Thumbnails can store info
-For network dumps there are two main tools: Wireshark and NetworkMiner
+* He recommends kaitai struct for stegno challenges (Part 1: 46:39)
+* Recommends pdfstreamdumper
+* Thumbnails can store info
+* For network dumps there are two main tools: Wireshark and NetworkMiner
 
 ## TODO 
 Fix all the weird non ascii apostrophes and double quotes
