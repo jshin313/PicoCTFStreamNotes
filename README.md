@@ -10,7 +10,7 @@ Title                                                                      | Cat
 [Warmed Up                   ](#reversing-50-reversing-warmup-1)           | General          | 50     | [Part 1 (1:00:06)](https://youtu.be/pYrGJuOUG7M?t=1h00m06s)
 
 ## Credits
-All the credit goes to [Gynvael Coldwind](https://www.youtube.com/channel/UCCkVMojdBWS-JtH7TliWkVg) for making these streams. Check him out.
+All the credit goes to [Gynvael Coldwind](https://www.youtube.com/channel/UCCkVMojdBWS-JtH7TliWkVg) for making these streams. Check him out. 
 I based the table format above on [this](https://github.com/shiltemann/CTF-writeups-public/blob/master/PicoCTF_2018/writeup.md#overview).
 
 ## The Factory's Secret - General Skills
