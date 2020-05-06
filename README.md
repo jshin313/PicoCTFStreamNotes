@@ -878,7 +878,7 @@ void vuln(char *buf){
   puts(buf);
 }
 ```
-The gets() function is prone to buffer overflows and so we can put any character in the buffer except '\n', even '\0' bytes.
+The gets() function is prone to buffer overflows and so we can put any character (even '\0' bytes) in the buffer except '\n'.
 
 This line of code just executes the buffer: `((void (*)()))(buf + offset))();`.  
 
@@ -895,7 +895,7 @@ vuln: setgid ELF 32-bit LSB executable, Intel 80386, version 1 (GNU/Linux), stat
 
 You could use random shellcode from the internet or create your own. Gynvael decides to write his own custom shellcode for fun using fopen/fgets.
 
-Open the binary in IDA or Ghidra to find the addresses of the functions.  
+Open the binary in IDA or Ghidra or objdump to find the addresses of the functions.  
 
 System is not in the binary unfortunately, but fopen is, so we can use it to open the flag.txt.  
 
@@ -922,9 +922,9 @@ n1:
   ; push fgets parameters (LIFO order)
   push eax ; eax is where fopen stores the file ptr (3rd parameter of fgets)
   push 64  ; number of characteres to read (2nd parameter of fgets)
-  push 0x80DC11C ; this is a random address in memory Gynvael found to write our flag (use IDA or Ghidra to find some blank memory)
+  push 0x80DC11C ; this is a random address in memory Gynvael found to write our flag (use IDA, Ghidra, or objdump to find some blank memory)
 
-  mov eax, 0x8052660 ; fgets address (Use IDA or Ghidra to find this)
+  mov eax, 0x8052660 ; fgets address (Use IDA or Ghidra or objdump to find this)
   call eax
 
   mov eax, 0x8050320 ; puts address
@@ -949,6 +949,85 @@ picoCTF{sl1pp3ry_sh311c0d3_3d79d4df}
 Segmentation fault (core dumped)
 ```
 For an actual ctf, Gynvael recommends not writing your own shellcode due to time constraints.
+
+## vault-door-3 - Reverse Engineering
+Gynvael gets stuck trying to create a mapping table, so he tries another way:
+
+Just take the part of the java code that does the scrambling and creates the simple anagram
+```java
+for (i=0; i<8; i++) {
+    buffer[i] = password.charAt(i);
+}
+for (; i<16; i++) {
+    buffer[i] = password.charAt(23-i);
+}
+for (; i<32; i+=2) {
+    buffer[i] = password.charAt(46-i);
+}
+for (i=31; i>=17; i-=2) {
+    buffer[i] = password.charAt(i);
+}
+```
+
+Convert to python to make it easier:
+```python
+for i in xrange(0, 8):
+    buffer[i] = password[i]
+for i in xrange(8, 16):
+    buffer[i] = password[23-i]
+for i in xrange(16, 32, 2):
+    buffer[i] = password[46-i]
+for i in xrange(31, 15, -2): # Note the >= in the above java for loop
+    buffer[i] = password[i]
+```
+
+Now use the above python to get the flag
+```python
+password = bytearray([x for x in range(32)]) # Generates an array with numbers from 0 to 31
+buffer = bytearray(32)
+
+s = bytearray("jU5t_a_sna_3lpm13gc49_u_4_m0rf41")
+
+# This gets the correct order of indexes to descramble s
+for i in xrange(0, 8):
+    buffer[i] = password[i]
+for i in xrange(8, 16):
+    buffer[i] = password[23-i]
+for i in xrange(16, 32, 2):
+    buffer[i] = password[46-i]
+for i in xrange(31, 15, -2):
+    buffer[i] = password[i]
+
+print str(buffer).encode("hex") # Now we have the indexes in buffer
+
+p = bytearray(32)
+
+for i, idx in enumerate(buffer):
+  p[i] = s[idx] # Put all the letters in the right order
+
+print p
+```
+
+## whats-the-difference
+Find the difference between the files using python:
+```python
+d = open("kitters.jpg", "rb").read() # Unmodified file
+e = open("cattos.jpg", "rb").read() # modified file
+
+f = ""
+
+# Zip takes one element from d and one from e for every iteration
+for a, b in zip(d, e):
+  if a != b:
+    f+=b
+
+print f
+```
+
+## where-is-the-file
+Connect to te shell server  
+
+
 
 
 ## Random other stuff Gynvael says about solving ctf challenges during the stream
