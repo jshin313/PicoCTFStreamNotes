@@ -65,7 +65,7 @@ Just use “view page source”
 
 ## Let's Warm Up - General Skills 
 Just use an online ascii table or hex to ascii converter or the following
-```python
+```pycon
 $ python
 >>> chr(0x70)
 'p'
@@ -96,7 +96,7 @@ print(''.join([a[n] for n in k]))
 ```
 
 ## 2Warm - General Skills 
-```python
+```pycon
 $ python
 >>> bin(42)
 '0b101010'
@@ -228,14 +228,14 @@ Convert from Base64
 Base64 is used to encode binary to a printable text
 
 Python2
-```python
+```pycon
 $ python
 >>> "bDNhcm5fdGgzX3IwcDM1".decode("base64")
 'l3arn_th3_r0p35'
 ```
 
 Python3
-```python
+```pycon
 $ python3
 >>> import base64
 base64.b64decode("bDNhcm5fdGgzX3IwcDM1")
@@ -497,7 +497,7 @@ Gynvael then just uses "Follow UDP stream" to find the flag
 
 ## Based - General Skills 
 Just convert binary to ascii, decimal to ascii, and octal to ascii, etc.
-```python
+```pycon
 $ python
 >>> list = "146 141 154 143 157 156"
 >>> base = 8
@@ -508,7 +508,7 @@ $ python
 ```
 
 Converting hex to ascii in python3
-```python
+```pycon
 $ python
 >>> bytes.fromhex("7461626c65")
 b'table'
@@ -692,7 +692,7 @@ n:
 
 It's possible to calculate n since `n = q*p`.  
 Solve for n:
-```python
+```pycon
 $ python
 >>> q = 60413
 >>> p = 76753
@@ -715,7 +715,7 @@ q:
 
 Just use `q = n/p` and some python.
 
-```python
+```pycon
 $ python
 >>> 5051846941/54269
 93089
@@ -747,7 +747,7 @@ totient(n):
 ```
 Use this equation `totient(n) = (q-1)*(p-1)` and python to calculate it
 
-```python
+```pycon
 $ python
 >>> ( 66347-1)*(12611-1)
 836623060
@@ -767,7 +767,7 @@ IS THIS POSSIBLE and FEASIBLE? (Y/N):y
 Encryption: `Ciphertext = plaintext^e mod n`
 
 Use python:
-```python
+```pycon
 $ python
 >>> m = 6357294171489311547190987615544575133581967886499484091352661406414044440475205342882841236357665973431462491355089413710392273380203038793241564304774271529108729717
 >>> e = 3
@@ -792,7 +792,7 @@ You need the private key, d, to get the plaintext. And in order to get d, you ne
 #### Question 7:
 
 Use python
-```python
+```pycon
 $ python
 >>> ​from Crypto.Util.number import inverse
 >>> q = 92092076805892533739724722602668675840671093008520241548191914215399824020372076186460768206814914423802230398410980218741906960527104568970225804374404612617736579286959865287226538692911376507934256844456333236362669879347073756238894784951597211105734179388300051579994253565459304743059533646753003894559
@@ -848,7 +848,7 @@ $ python
 ```
 
 To get the flag, just convert the above message to hex and then to ascii
-```python
+```pycon
 $ python
 >>> hex(14311663942709674867122208214901970650496788151239520971623411712977119642137567031494784893)[2:-1].decode('hex')
 'picoCTF{wA8_th4t$_ill3aGal..o1828d357}'
