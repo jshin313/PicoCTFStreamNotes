@@ -51,7 +51,13 @@ Title                                                                      | Cat
 [WhitePages                  ](#whitepages---forensics)                    | Forensics        | 250    | [Part 2 (1:41:20)](https://youtu.be/gHlundcY9GA?t=1h41m20s)
 [c0rrupt                     ](#c0rrupt---forensics)                       | Forensics        | 250    | [Part 2 (1:51:03)](https://youtu.be/gHlundcY9GA?t=1h51m03s)
 [m00nwalk                    ](#m00nwalk---forensics)                      | Forensics        | 250    | [Part 2 (2:03:55)](https://youtu.be/gHlundcY9GA?t=2h03m55s)
-
+[OverFlow 2                  ](#overflow2---binary-exploitation)           | Binary           | 250    | [Part 3 (17:33)](https://youtu.be/3x4nzymm33Q?t=17m33s)
+[NewOverFlow-1               ](#newoverflow-1---binary-exploitation)       | Binary           | 200    | [Part 3 (32:17)](https://youtu.be/3x4nzymm33Q?t=32m17s)
+[like1000                    ](#like1000---forensics)                      | Forensics        | 250    | [Part 3 (1:14:51)](https://youtu.be/3x4nzymm33Q?t=1h14m51s)
+[vault-door-4                ](#vault-door-4---reverse-engineering)        | Reversing        | 250    | [Part 3 (1:32:45)](https://youtu.be/3x4nzymm33Q?t=1h32m45s)
+[Irish-Name-Repo 1           ](#irish-name-repo-1---web-exploitation)      | Web              | 300    | [Part 3 (1:38:26)](https://youtu.be/3x4nzymm33Q?t=1h38m26s)
+[flag_shop                   ](#flag_shop---general-skills)                | General          | 300    | [Part 3 (1:48:23)](https://youtu.be/3x4nzymm33Q?t=1h48m23s)
+[asm1                        ](#asm1---reverse-engineering)                | Reversing        | 200    | [Part 3 (2:02:44)](https://youtu.be/3x4nzymm33Q?t=2h02m44s)
 
 
 ## Credits
@@ -1308,7 +1314,7 @@ The above script *does* work in getting the flag, but tar files are sort of just
 
 Gynvael just opens up a hex editor and finds the magic header for the PNG (89 50 4e 47). He then deletes everything before that header and saves the file. Open in an image viewer as a png and there's the flag.
 
-## vault-door-4
+## vault-door-4 - Reverse Engineering
 Just print the myBytes array:
 ```python
 print bytearray([106 , 85  , 53  , 116 , 95  , 52  , 95  , 98  ,
