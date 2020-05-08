@@ -1469,7 +1469,7 @@ ret
 ```
 
 Push the argument and a junk return address onto the stack
-```
+```assembly
 [bits 32] ; 32 bit since esp instead of rsp
 asm1:
 push   0x529
@@ -1498,7 +1498,7 @@ ret
 ```
 
 Add 10 to every asm+offset since the two push instruction we added are 10 bytes
-```
+```assembly
 [bits 32] ; 32 bit since esp instead of rsp
 asm1:
 push   0x529
