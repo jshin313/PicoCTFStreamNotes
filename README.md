@@ -1526,12 +1526,16 @@ pop    ebp
 ret    
 ```
 
-Compile and run with [asmloader](https://github.com/gynvael/asmloader):
+Compile and run with [asmloader (32 bit version)](https://github.com/gynvael/asmloader):
 ```console
 $ nasm test.S
 $ gdb ./asmloader
 (gdb) run test
+...
+Program received signal SIGSEGV, Segmentation fault.
+0x41414141 in ?? ()
 (gdb) i r eax
+eax            0x51e               1310
 ```
 The returned value is stored in eax per [calling conventions](https://www.agner.org/optimize/calling_conventions.pdf)
 
