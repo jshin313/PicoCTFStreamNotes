@@ -2220,11 +2220,10 @@ Please enter the length of the entry:
 Please enter the length of the entry:
 > Input> Ok... Now Where's the Flag?
 picoCTF{cAnAr135_mU5t_b3_r4nd0m!_069c6f48}
-
 ```
 
 ## Investigative Reversing 0 - Forensics
-
+We get a png and a binary. When we look at the png in a hex editor it looks like there's a flag at the end of it, although it's modified. Gynvael looks at the binary in IDA and sees that the binary appends the first 6 bytes of the flag to the png, appends the 9 next bytes after adding 5 to each of the chars, and then subtracts 3 to the next byte. Gynvael does the opposite operations on the hex to reverse what the binary did to get the flag.
 
 ## Random other stuff Gynvael says about solving ctf challenges during the stream
 * He recommends kaitai struct for stegno challenges (Part 1: 46:39)
