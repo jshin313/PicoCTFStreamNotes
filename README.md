@@ -58,6 +58,10 @@ Title                                                                      | Cat
 [Irish-Name-Repo 1           ](#irish-name-repo-1---web-exploitation)      | Web              | 300    | [Part 3 (1:38:26)](https://youtu.be/3x4nzymm33Q?t=1h38m26s)
 [flag_shop                   ](#flag_shop---general-skills)                | General          | 300    | [Part 3 (1:48:23)](https://youtu.be/3x4nzymm33Q?t=1h48m23s)
 [asm1                        ](#asm1---reverse-engineering)                | Reversing        | 200    | [Part 3 (2:02:44)](https://youtu.be/3x4nzymm33Q?t=2h02m44s)
+[New Overflow-2              ](#newoverflow-2---binary-exploitation)       | Binary           | 250    | [Part 4 (25:45)](https://youtu.be/gEPd1ref9s0?t=25m45s)
+[asm2                        ](#asm2---reverse-engineering)                | Reversing        | 250    | [Part 4 (52:41)](https://youtu.be/gEPd1ref9s0?t=52m41s)
+[CanaRy                      ](#canary---binary-exploitation)              | Binary           | 300    | [Part 4 (1:07:25)](https://youtu.be/gEPd1ref9s0?t=1h07m25s)
+[Investigative Reversing 0   ](#investigative-reversing-0---forensics)     | Forensics        | 300    | [Part 4 (1:57:03)](https://youtu.be/gEPd1ref9s0?t=1h57m03s)
 
 ## Note:
 If you're following along with your own picoctf account and solving challenges, not all values in the writeups will be the same as yours. For example, the last few characters of the flags are randomized, problem paths in the shell server are different for each user, and for the asm reversing problems, the values you get are different.
