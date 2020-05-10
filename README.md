@@ -1781,7 +1781,7 @@ picoCTF{r0p_1t_d0nT_st0p_1t_535c741c}
 Segmentation fault (core dumped)
 ```
 
-Some instructions need stack alignments of 16 bytes instead of 8 bytes, which is why we needed to add another return in our exploit. 
+Some instructions need stack alignments of 16 bytes instead of 8 bytes, which is why we needed to add another 8 bytes in our exploit with the ret. 
 
 ## asm2 - Reverse Engineering
 
