@@ -62,12 +62,10 @@ Title                                                                      | Cat
 [asm2                        ](#asm2---reverse-engineering)                | Reversing        | 250    | [Part 4 (52:41)](https://youtu.be/gEPd1ref9s0?t=52m41s)
 [CanaRy                      ](#canary---binary-exploitation)              | Binary           | 300    | [Part 4 (1:07:25)](https://youtu.be/gEPd1ref9s0?t=1h07m25s)
 [Investigative Reversing 0   ](#investigative-reversing-0---forensics)     | Forensics        | 300    | [Part 4 (1:57:03)](https://youtu.be/gEPd1ref9s0?t=1h57m03s)
-
-asm3 35:12
-m00nwalk2 57:00 (Listens to files and then skips challenge since Gynvael's having trouble with the software and his audio configuration)
-miniRSA 1:01:08
-mus1c 1:17:45
-shark on wire 2 1:29:57
+[asm3                        ](#asm3---reverse-engineering)                | Reversing        | 300    | [Part 5 (35:12)](https://youtu.be/gNvvZhpYHpw?t=35m12s)
+[miniRSA                     ](#minirsa---cryptography)                    | Crypto           | 300    | [Part 5 (1:01:08)](https://youtu.be/gNvvZhpYHpw?t=1h01m08s)
+[mus1c                       ](#mus1c---general)                           | General          | 300    | [Part 5 (1:17:45)](https://youtu.be/gNvvZhpYHpw?t=1h17m45s)
+[shark on the wire 2         ](#shark-on-the-wire-2---forensics)           | Forensics        | 300    | [Part 5 (1:29:57)](https://youtu.be/gNvvZhpYHpw?t=1h29m57s)
 
 ## Note:
 If you're following along with your own picoctf account and solving challenges, not all values in the writeups will be the same as yours. For example, the last few characters of the flags are randomized, problem paths in the shell server are different for each user, and for the asm reversing problems, the values you get are different.
@@ -2396,6 +2394,248 @@ a = """114
 ```
 
 ## shark on the wire 2 - Forensics
+Lots of red herrings that Gynvael spent time on. Gynvael tries a lot of approaches.    
+
+Gynvael uses network miner, doesn't find too much.
+
+Use strings
+```console
+$ strings capture.pcap | grep "picoCTF"
+picoCTF Sure is fun!CmP]2
+I really want to find some picoCTF flagsEmP]m=
+picoCTF Sure is fun!ImP]
+I really want to find some picoCTF flagsKmP]
+picoCTF Sure is fun!OmP]
+I really want to find some picoCTF flagsQmP]
+picoCTF Sure is fun!VmP]\V
+I really want to find some picoCTF flagsXmP]
+picoCTF Sure is fun!\mP]
+I really want to find some picoCTF flags^mP]
+picoCTF Sure is fun!bmP]I
+I really want to find some picoCTF flagsdmP]
+picoCTF Sure is fun!hmP]
+I really want to find some picoCTF flagskmP]
+picoCTF Sure is fun!omP]
+I really want to find some picoCTF flagsqmP]}
+picoCTF Sure is fun!umP]
+I really want to find some picoCTF flagswmP]
+```
+
+Use wireshark to look for that pico string. Gynvael notices that for UDP packets of length 1, there seems to be a character being sent. It looks like they're being sent to different hosts. Gynvael finds a fake flag on one of the hosts and decides to filter by destination ip 10.0.0.12 using the `data.len==1 and ip.dst == 10.0.0.12` filter. However, it seems like some of the packets are sent from different sources, so he thinks the flag is split between different streams.  
+
+Different approach: filter by `data.len ==1`. File-> Export Packet Dissection as Json (only displayed packets, Packet bytes, all expanded).
+Use python:
+```python
+import json
+
+with open("asdf.json", "r") as f:
+  d = json.load(f)
+for p in d:
+  a = p["_source"]["layers"]["data"]["data.data"]
+  src = p["_source"]["layers"]["ip"]["ip.src"]
+  dst = p["_source"]["layers"]["ip"]["ip.dst"]
+
+  s = str(bytes.fromhex(a))
+
+  print (src, dst, s)
+
+```
+This just dumps the data and the src and dst ip.
+
+This doesn't really get us anywhere. Gynvael tries sorting by destination ip and source ip but gets nowhere.  
+```python
+import json
+
+with open("asdf.json", "r") as f:
+  d = json.load(f)
+
+ip_src = {}
+ip_dst = {}
+
+for p in d:
+  a = p["_source"]["layers"]["data"]["data.data"] # Get data
+  src = p["_source"]["layers"]["ip"]["ip.src"] # Get src ips
+  dst = p["_source"]["layers"]["ip"]["ip.dst"] # Get destination ips
+
+  a = a.replace(":", "")
+  s = str(bytes.fromhex(a), "ascii")
+
+  # Sorts data based on ip src
+  if src in ip_src:
+    ip_src[src] += s
+  else:
+    ip_src[src] = s
+
+  # Sorts data based on ip dst
+  if dst in ip_dst:
+    ip_dst[dst] += s
+  else:
+    ip_dst[dst] = s
+
+# Prints data based on source IP
+for k, v in ip_src.items():
+  print(k, v)
+
+# Prints data based on destination IP
+for k, v in ip_dst.items():
+  print(k, v)
+
+```
+
+Instead of filtering by data.len of 1, just filter out any non udp traffic: `udp and not mdns and not ssdp and not llmnr`. Export data as before and save as json. Gynvael thinks the last number of some source IP addresses are ascii characters that will make up the flag. For example some IP addresses are 10.0.0.66. 66 could be ascii 'B'.  
+
+Use python to get the source IP addreses of the packets and see if the last decimal is ascii. If it is ascii then combine the chars to make a flag:
+```python
+import json
+
+flag = ""
+
+with open("asdf.json", "r") as f:
+  d = json.load(f)
+
+ip_src = {}
+ip_dst = {}
+
+for p in d:
+  # Not all packets have data, so use try and except to filter out the packets without data
+  try:
+    a = p["_source"]["layers"]["data"]["data.data"] # Get data
+    src = p["_source"]["layers"]["ip"]["ip.src"] # Get src ips
+    dst = p["_source"]["layers"]["ip"]["ip.dst"] # Get destination ips
+  except KeyError:
+    continue
+
+  a = a.replace(":", "")
+  s = str(bytes.fromhex(a), "ascii")
+
+  # Take the src address and take the last part
+  x = int(src.split('.')[-1])
+
+  # See if the last part of the src ip is actually within the ascii range
+  if 32 < x < 127:
+    flag += chr(x) # Add the character
+
+
+print(flag)
+```
+
+```console
+$ python3 go.py
+ddddddddddddddddddddddddddddddBBKKKKKBBBBBBBBBBBBBKKKKKBBBKKBKBBCBBBBBeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeBBBBKKKBBKKKKBBPOONMMKdn
+```
+This doesn't seem to be the flag, so the aproach above is probably wrong.
+
+New idea. Some of the ports are weird. Some ports are like 5112 or like 5097. If we get rid of the 5, we can get 112 or 97, which are ascii printable. Let's take all the packets with udp ports greater than 5000 and then get rid of the 5. Then we can try converting the ports-5000 to ascii printable characters to see if the characters will form the flag:
+```python
+import json
+
+flag = ""
+
+with open("asdf.json", "r") as f:
+  d = json.load(f)
+
+ip_src = {}
+ip_dst = {}
+
+for p in d:
+  # Not all packets have data, so use try and except to filter out the packets without data
+  try:
+    a = p["_source"]["layers"]["data"]["data.data"] # Get data
+    src = p["_source"]["layers"]["ip"]["ip.src"] # Get src ips
+    dst = p["_source"]["layers"]["ip"]["ip.dst"] # Get destination ips
+  except KeyError:
+    continue
+
+  a = a.replace(":", "")
+  s = str(bytes.fromhex(a), "ascii")
+
+  # Take the src address and take the last part
+  x = int(src.split('.')[-1])
+
+  # See if the last part of the src ip is actually within the ascii range
+  if 32 < x < 127:
+    port = int(p["_source"]["layers"]["udp"]["udp.srcport"])
+    if port > 5000:
+      print(port)
+      flag += chr(port - 5000)
+
+
+print(flag)
+```
+
+```console
+$ python3 go.py
+...
+5097
+5048
+5125
+5097
+5097
+5097
+5097
+5097
+5097
+5097
+5097
+paaaaaicoCTF{p1LLf3aaaaar3daa_adaata_v1a_staaa3gaaaa0}aaaaaaaa
+```
+The above ouput looks very close to the flag, except that it has a bunch of a's. Let's just get rid of the a's.
+```python
+import json
+
+flag = ""
+
+with open("asdf.json", "r") as f:
+  d = json.load(f)
+
+ip_src = {}
+ip_dst = {}
+
+for p in d:
+  # Not all packets have data, so use try and except to filter out the packets without data
+  try:
+    a = p["_source"]["layers"]["data"]["data.data"] # Get data
+    src = p["_source"]["layers"]["ip"]["ip.src"] # Get src ips
+    dst = p["_source"]["layers"]["ip"]["ip.dst"] # Get destination ips
+  except KeyError:
+    continue
+
+  a = a.replace(":", "")
+  s = str(bytes.fromhex(a), "ascii")
+
+  # Take the src address and take the last part
+  x = int(src.split('.')[-1])
+
+  # See if the last part of the src ip is actually within the ascii range
+  if 32 < x < 127:
+    port = int(p["_source"]["layers"]["udp"]["udp.srcport"])
+    if port > 5000:
+      print(port)
+      flag += chr(port - 5000)
+
+print(flag)
+print(flag.replace("a", ""))
+```
+
+```console
+$ python3 go.py
+...
+5097
+5048
+5125
+5097
+5097
+5097
+5097
+5097
+5097
+5097
+5097
+paaaaaicoCTF{p1LLf3aaaaar3daa_adaata_v1a_staaa3gaaaa0}aaaaaaaa
+picoCTF{p1LLf3r3d_dt_v1_st3g0}
+```
+
+When we submit `picoCTF{p1LLf3r3d_dt_v1_st3g0}` as the flag, it seems to be incorrect. We probably removed too many a's. With a bit of guesing we figure out that that the `dt` part of the flag should be `data` and that `v1` should be `v1a` (via), which makes the actual flag `picoCTF{p1LLf3r3d_data_v1a_st3g0}`.
 
 
 ## Random other stuff Gynvael says about solving ctf challenges during the stream
@@ -2406,6 +2646,7 @@ a = """114
 * Gynvael recommends working on ctf challenges remotely in most cases since in many cases an exploit could work locally but not remotely (like in the above case).
 * On 64-bit binary exploitation challenges, when passing parameters to functions, ROP is usually the way to get the proper values into registers.
 * calling exit() still means the destructors are still called. An attacker can use the destructor call to their advantage. Use \_exit instead with the underscore.
+* In part 5, Gynvael mentions a security bug called Http parameter pollution. While looking at JSON data, Gynvael points out how when there are keys with the same name, then there could be a security bug since some parsers might just return the first key-value pair while another parser might return the second key-value pair.
 
 ## TODO 
 * Fix all the weird non ascii apostrophes and double quotes
