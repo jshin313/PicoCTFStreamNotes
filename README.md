@@ -64,7 +64,7 @@ Title                                                                      | Cat
 [Investigative Reversing 0   ](#investigative-reversing-0---forensics)     | Forensics        | 300    | [Part 4 (1:57:03)](https://youtu.be/gEPd1ref9s0?t=1h57m03s)
 [asm3                        ](#asm3---reverse-engineering)                | Reversing        | 300    | [Part 5 (35:12)](https://youtu.be/gNvvZhpYHpw?t=35m12s)
 [miniRSA                     ](#minirsa---cryptography)                    | Crypto           | 300    | [Part 5 (1:01:08)](https://youtu.be/gNvvZhpYHpw?t=1h01m08s)
-[mus1c                       ](#mus1c---general)                           | General          | 300    | [Part 5 (1:17:45)](https://youtu.be/gNvvZhpYHpw?t=1h17m45s)
+[mus1c                       ](#mus1c---general-skills)                    | General          | 300    | [Part 5 (1:17:45)](https://youtu.be/gNvvZhpYHpw?t=1h17m45s)
 [shark on the wire 2         ](#shark-on-the-wire-2---forensics)           | Forensics        | 300    | [Part 5 (1:29:57)](https://youtu.be/gNvvZhpYHpw?t=1h29m57s)
 
 ## Note:
