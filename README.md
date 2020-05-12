@@ -2229,6 +2229,169 @@ picoCTF{cAnAr135_mU5t_b3_r4nd0m!_069c6f48}
 ## Investigative Reversing 0 - Forensics
 We get a png and a binary. When we look at the png in a hex editor it looks like there's a flag at the end of it, although it's modified. Gynvael looks at the binary in IDA and sees that the binary appends the first 6 bytes of the flag to the png, appends the 9 next bytes after adding 5 to each of the chars, and then subtracts 3 to the next byte. Gynvael does the opposite operations on the hex to reverse what the binary did to get the flag.
 
+## asm3 - Reverse Engineering
+Here's the asm:
+```assmebly
+asm3:
+        <+0>:   push   ebp
+        <+1>:   mov    ebp,esp
+        <+3>:   xor    eax,eax
+        <+5>:   mov    ah,BYTE PTR [ebp+0x9]
+        <+8>:   shl    ax,0x10
+        <+12>:  sub    al,BYTE PTR [ebp+0xd]
+        <+15>:  add    ah,BYTE PTR [ebp+0xf]
+        <+18>:  xor    ax,WORD PTR [ebp+0x10]
+        <+22>:  nop
+        <+23>:  pop    ebp
+        <+24>:  ret
+```
+Standard ebp+offset references arguments.
+
+Convert to python:
+```python
+from struct import pack, unpack # For converting stuff to little endian
+
+""" Just converts to little endian"""
+def dd(v):
+  return pack("<I", v)
+
+""" Read word: Returns unsigned integer 16 bits from little endian"""
+def rw(d):
+  return unpack("<H", d)[0]
+
+# set up the stack before the asm3 function is called
+stack = bytearray(dd(0) + dd(0) + dd(0xc264bd5c) + dd(0xb5a06caa) + dd(0xad761175)) # dd(0) are there for saved ebp and return address
+
+# eax is split into different parts
+# [    eax    ] ; 4 bytes
+# [   ] [ ax  ] ; ax is 2 bytes
+# [  ] [ah][al] ; ah and al are both only 1 byte
+
+# <+5>:   mov    ah,BYTE PTR [ebp+0x9]
+ax = stack[9] << 8 # grab byte at index 9 and shift left by a byte since ah is the second lowest byte
+
+# <+8>:   shl    ax,0x10
+ax = ((ax & 0xffff) << 0x10) & 0xffff # First grab only 2 bytes from ax and shift left by 0x10 and then only grab 2 bytes of the result
+
+# <+12>:  sub    al,BYTE PTR [ebp+0xd]
+al = ((ax & 0xff) - stack[0xd]) & 0Xff # Grab bottom byte of ax and subtract the byte at index 0xd. then grab only bottom byte of that
+ax = (ax & 0xff00) | al # Zero out bottom bytes of ax and then fill bottom byte of ax with al, leaving top byte of ax unchanged
+
+# <+15>:  add    ah,BYTE PTR [ebp+0xf]
+ah = (((ax >> 8) & 0xff) + stack[0xf]) & 0xff # Take top byte from ax and add byte at index 0xf. Then get only lowest byte from it since ah is only 16 bits
+ax = (ax & 0x00ff) | (ah << 8) # Transfer ah to ax by zeroing out top byte of ax and leaving bottom byte of ax unmodified 
+
+# <+18>:  xor    ax,WORD PTR [ebp+0x10]
+ax ^= rw(stack[0x10:0x12])
+
+print("0x%.4x" % ax)
+```
+## miniRSA - Cryptography
+This is what we get:
+```
+N: 29331922499794985782735976045591164936683059380558950386560160105740343201513369939006307531165922708949619162698623675349030430859547825708994708321803705309459438099340427770580064400911431856656901982789948285309956111848686906152664473350940486507451771223435835260168971210087470894448460745593956840586530527915802541450092946574694809584880896601317519794442862977471129319781313161842056501715040555964011899589002863730868679527184420789010551475067862907739054966183120621407246398518098981106431219207697870293412176440482900183550467375190239898455201170831410460483829448603477361305838743852756938687673
+e: 3
+
+ciphertext (c): 2205316413931134031074603746928247799030155221252519872650101242908540609117693035883827878696406295617513907962419726541451312273821810017858485722109359971259158071688912076249144203043097720816270550387459717116098817458584146690177125
+```
+If the ciphertext is short and e is small, than you can run root e on the ciphertext.   
+
+Since `Ciphertext = m^e mod N`, if e is small then it's possible that the following condition is true `m^e < N`. If `m^e < N` is true, then the mod N basically has no effect, so essentially `ciphertext = m^e`. So you can get m by doing root e of ciphertext.  
+
+Use python
+```python
+e = 3
+
+c = 2205316413931134031074603746928247799030155221252519872650101242908540609117693035883827878696406295617513907962419726541451312273821810017858485722109359971259158071688912076249144203043097720816270550387459717116098817458584146690177125
+
+a = pow(c, 1/e)
+b = hex(int(a))[2:]
+
+p = bytes.fromhex(b)
+
+print(p)
+```
+
+```console
+$ python3 a.py
+b'picoCS\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+```
+
+It sort of works. Python's pow method uses doubles when doing a root so we lose some precision which is why it doesn't work all the way.  
+
+```python
+import gmpy2
+
+e = 3
+
+c = 2205316413931134031074603746928247799030155221252519872650101242908540609117693035883827878696406295617513907962419726541451312273821810017858485722109359971259158071688912076249144203043097720816270550387459717116098817458584146690177125
+
+a, _ = gmpy2.iroot(c, e)
+
+print(bytes.fromhex(hex(a)[2:]))
+```
+
+```console
+$ python3 a.py
+b'picoCTF{n33d_a_lArg3r_e_ff7cfba1}'
+```
+
+If you wanted to implement the above on your own you would try solving the following equation: `c - m ** e = 0` in a programmatic way (called bisection).
+
+Lack of padding is also something wrong with the ciphertext.  
+
+## mus1c - General Skills
+Looks like an esoteric programming language challenge.  
+
+[Rockstar programming language](https://github.com/RockstarLang/rockstar).  
+
+Gynvael uses [this](https://palfrey.github.io/maiden/) Rockstar to Rust online interpreter first, but it doesn't seem to parse everything correctly.  
+
+Gynvael tries the official [compiler](https://codewithrockstar.com/online/) instead.  
+
+We get the following output:
+```
+114
+114
+114
+111
+99
+107
+110
+114
+110
+48
+49
+49
+51
+114
+Program completed in 195 ms
+```
+
+Use python to convert it to ascii
+```python
+a = """114
+114
+114
+111
+99
+107
+110
+114
+110
+48
+49
+49
+51
+114
+"""
+
+''.join([chr(int(x)) for x in a.split("\n") if x])
+```
+
+## shark on the wire 2 - Forensics
+
+
 ## Random other stuff Gynvael says about solving ctf challenges during the stream
 * He recommends kaitai struct for stegno challenges (Part 1: 46:39)
 * Recommends pdfstreamdumper
