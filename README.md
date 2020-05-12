@@ -63,6 +63,12 @@ Title                                                                      | Cat
 [CanaRy                      ](#canary---binary-exploitation)              | Binary           | 300    | [Part 4 (1:07:25)](https://youtu.be/gEPd1ref9s0?t=1h07m25s)
 [Investigative Reversing 0   ](#investigative-reversing-0---forensics)     | Forensics        | 300    | [Part 4 (1:57:03)](https://youtu.be/gEPd1ref9s0?t=1h57m03s)
 
+asm3 35:12
+m00nwalk2 57:00 (Listens to files and then skips challenge since Gynvael's having trouble with the software and his audio configuration)
+miniRSA 1:01:08
+mus1c 1:17:45
+shark on wire 2 1:29:57
+
 ## Note:
 If you're following along with your own picoctf account and solving challenges, not all values in the writeups will be the same as yours. For example, the last few characters of the flags are randomized, problem paths in the shell server are different for each user, and for the asm reversing problems, the values you get are different.
 
