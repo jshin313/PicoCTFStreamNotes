@@ -70,7 +70,7 @@ Title                                                                      | Cat
 [reverse_cipher              ](#reverse_cipher---reverse-engineering)      | Reversing        | 300    | [Part 6 (1:00:27)](https://youtu.be/rK2y0wMS_9w?t=1h00m27s)
 [stringzz                    ](#stringzz---binary-exploitation)            | Binary           | 300    | [Part 6 (1:13:13)](https://youtu.be/rK2y0wMS_9w?t=1h13m13s)
 [Investigative Reversing 1   ](#investigative-reversing-1---forensics)     | Forensics        | 350    | [Part 6 (1:30:43)](https://youtu.be/rK2y0wMS_9w?t=1h30m43s)
-[pastaAAA                    ](#pastaaa---forensics)                       | Forensics        | 350    | [Part 6 (1:43:42)](https://youtu.be/rK2y0wMS_9w?t=1h43m42s)
+[pastaAAA                    ](#pastaaaa---forensics)                      | Forensics        | 350    | [Part 6 (1:43:42)](https://youtu.be/rK2y0wMS_9w?t=1h43m42s)
 
 ## Note:
 If you're following along with your own picoctf account and solving challenges, not all values in the writeups will be the same as yours. For example, the last few characters of the flags are randomized, problem paths in the shell server are different for each user, and for the asm reversing problems, the values you get are different.
